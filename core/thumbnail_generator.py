@@ -19,7 +19,8 @@ from core.comfy_client import ComfyClient
 
 def generate_title_and_thumbnail_concepts(script: str, topic: str, profile: dict) -> dict:
     """
-    Generates high-CTR title, thumbnail short text, and ComfyUI SDXL visual prompt.
+    Generates high-CTR title, thumbnail short text, and ComfyUI SDXL visual prompt
+    anchored strictly to the topic domain and scene context.
     """
     prompt = f"""You are a viral YouTube Shorts and TikTok thumbnail copywriter and creative director.
 Given this video script about '{topic}':
@@ -29,7 +30,13 @@ Given this video script about '{topic}':
 Generate:
 1. "title": A high-CTR viral video title (under 55 characters, curiosity hook, e.g. "What They Found Under Antarctica Terrifies Scientists").
 2. "thumbnail_text": 2 to 4 words MAX for the thumbnail overlay in ALL CAPS (e.g. "DO NOT ENTER", "THEY HID THIS", "IMPOSSIBLE FIND", "BURIED IN ICE"). Must evoke extreme curiosity.
-3. "thumbnail_prompt": A detailed textless cinematic SDXL image prompt for ComfyUI (photorealistic, 8k, dramatic volumetric lighting, cinematic photography, no text, no letters, no words).
+3. "thumbnail_prompt": A detailed textless cinematic SDXL image prompt for ComfyUI.
+
+CRITICAL RULES FOR THUMBNAIL PROMPT:
+- The image MUST depict '{topic}' and the core discovery/scene described in the script.
+- Every visual element MUST be set directly in the environment of '{topic}'.
+- If topic is '{topic}', describe the physical environment, lighting, and subjects of '{topic}' (e.g. "dramatic cinematic photorealistic shot of massive industrial drill rig boring into frozen ice sheet in {topic}, subterranean cavern, volumetric blue lighting, 8k, national geographic photography, textless, no words").
+- NEVER depict unrelated rooms, hospitals, generic buildings, or modern city streets.
 
 Return ONLY a JSON object with keys "title", "thumbnail_text", "thumbnail_prompt". No explanations, no markdown."""
 
@@ -45,6 +52,10 @@ Return ONLY a JSON object with keys "title", "thumbnail_text", "thumbnail_prompt
                 cleaned = cleaned[4:]
         data = json.loads(cleaned.strip())
         if isinstance(data, dict) and "title" in data:
+            # Enforce topic anchoring in the prompt
+            p_text = data.get("thumbnail_prompt", "")
+            if topic.lower() not in p_text.lower():
+                data["thumbnail_prompt"] = f"dramatic cinematic shot of {topic}, {p_text}"
             return data
     except Exception as e:
         logger.warning(f"Failed to parse title/thumbnail JSON: {e}")
@@ -52,7 +63,7 @@ Return ONLY a JSON object with keys "title", "thumbnail_text", "thumbnail_prompt
     return {
         "title": f"The Forbidden Mystery of {topic}",
         "thumbnail_text": "THEY HID THIS",
-        "thumbnail_prompt": f"dramatic cinematic photorealistic shot of {topic}, volumetric lighting, 8k, national geographic, textless"
+        "thumbnail_prompt": f"dramatic cinematic photorealistic shot of mysterious discovery buried deep in {topic}, volumetric lighting, 8k, national geographic photography, textless"
     }
 
 

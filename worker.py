@@ -53,6 +53,8 @@ def build_system_script_prompt(profile: dict, topic: str, research_context: str 
     min_w = target_cfg.get("min_words", 140)
     max_w = target_cfg.get("max_words", 165)
 
+    context_block = f"\n## Verified Historical Research & Facts:\n{research_context}\n" if research_context else ""
+
     return f"""# Role: Elite Short-Form Storyteller & Investigative Documentarian
 # Niche: {profile['niche']['name']} ({profile['niche']['description']})
 # Subject: {topic}
@@ -94,9 +96,8 @@ def generate_niche_script(profile: dict, topic: str, research_context: str = "")
         raise RuntimeError(f"Script generation failed: {response}")
 
     script = response.strip()
-    # Clean any LLM meta-commentary, word counts, or markdown notes
-    script = re.sub(r'\[\s*(?:word\s*count|words?|note|duration|hook).*?\]', '', script, flags=re.IGNORECASE)
-    script = re.sub(r'\(\s*(?:word\s*count|words?|note|duration|hook).*?\)', '', script, flags=re.IGNORECASE)
+    # Clean any LLM meta-commentary, bracketed word counts, or markdown notes
+    script = re.sub(r'\[.*?\]|\(.*?\)', '', script)
     script = re.sub(r'(?i)\bword\s*count\s*:\s*\d+\b', '', script)
     script = re.sub(r'\*\*(?:Narrator|Voiceover|Audio|Host)\s*:\*\*', '', script, flags=re.IGNORECASE)
     script = re.sub(r'(?:Narrator|Voiceover|Audio|Host)\s*:\s*', '', script, flags=re.IGNORECASE)
@@ -104,29 +105,28 @@ def generate_niche_script(profile: dict, topic: str, research_context: str = "")
 
 
 def generate_visual_terms(script: str, topic: str, profile: dict) -> list[dict]:
-    """Generate high-precision search queries for each visual beat in the narrative."""
-    prompt = f"""Given this documentary video script about '{topic}', break it down into 4 to 6 sequential visual scene beats.
-For each beat, specify a punchy 1 to 2 word search term for dynamic, cinematic vertical motion video B-roll (drone shots, moving landscape, atmospheric action, slow motion).
+    """Generate high-precision search queries anchored strictly to the topic domain."""
+    prompt = f"""Given this documentary video script about '{topic}', break it down into 6 to 8 sequential visual scene beats.
+For each beat, specify a search term for dynamic, cinematic vertical motion video B-roll (drone shots, moving landscape, atmospheric action).
 
-IMPORTANT VISUAL SEARCH RULES:
-- Queries must be 1 to 2 words ONLY describing cinematic motion footage.
-  * If polar / cold / Antarctica -> "glacier ice", "iceberg ocean", "snow blizzard", "drone mountains", "polar water".
-  * If historical / ancient -> "ancient ruins", "desert storm", "torch fire", "dark forest", "drone castle".
-  * If tech / future -> "datacenter server", "microchip", "cyber neon", "drone city night".
-- NEVER use abstract phrases, sentence fragments, or generic words like "history" or "discovery".
+CRITICAL SEARCH RULES:
+- EVERY query MUST be strictly relevant to '{topic}' and the actual scene described in the script.
+- NEVER suggest unrelated objects, generic terms, or out-of-context environments (e.g. NEVER suggest Roman ruins or computer chips for polar/ice topics).
+- Focus on authentic visual motion footage matching '{topic}' (e.g., "{topic} ice drill", "{topic} glacier flyover", "{topic} blizzard snowstorm", "{topic} subterranean lake", "{topic} frozen landscape").
 
 Script:
 "{script}"
 
-Return a JSON array of 4 to 6 objects where each object has:
-- "query": 1 to 2 word cinematic video search term (e.g. "glacier ice", "drone mountains")
-- "fallback": 1 word fallback term (e.g. "iceberg", "snow")
+Return a JSON array of 6 to 8 objects where each object has:
+- "query": descriptive cinematic video search query for '{topic}'
+- "fallback": 1-2 word fallback term
 
 Return ONLY the raw JSON array. No explanations, no markdown formatting."""
 
     app_cfg = _get_llm_config(profile)
     response = llm._generate_response(prompt, app_config=app_cfg)
     
+    items = []
     try:
         cleaned = response.strip()
         if "```" in cleaned:
@@ -134,14 +134,49 @@ Return ONLY the raw JSON array. No explanations, no markdown formatting."""
             cleaned = parts[1]
             if cleaned.startswith("json"):
                 cleaned = cleaned[4:]
-        items = json.loads(cleaned.strip())
-        if isinstance(items, list) and items:
-            return items
+        parsed = json.loads(cleaned.strip())
+        if isinstance(parsed, list):
+            items = parsed
     except Exception as e:
         logger.debug(f"JSON visual beat parsing fallback: {e}")
 
-    terms = [t.strip().strip('"').strip("'") for t in response.split(",") if t.strip()]
-    return [{"query": t, "fallback": topic} for t in terms[:6]]
+    if not items:
+        terms = [t.strip().strip('"').strip("'") for t in response.split(",") if t.strip()]
+        items = [{"query": t, "fallback": topic} for t in terms[:8]]
+
+    # Post-process: Guarantee every query is anchored to the topic domain
+    anchored_beats = []
+    topic_clean = topic.strip()
+    topic_words = set(topic_clean.lower().split())
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        raw_q = re.sub(r'["\']', '', item.get("query", "")).strip()
+        raw_fb = re.sub(r'["\']', '', item.get("fallback", topic_clean)).strip()
+        
+        if not raw_q:
+            continue
+
+        q_words = set(raw_q.lower().split())
+        # Anchor with topic if not already present
+        if not (topic_words & q_words):
+            anchored_q = f"{topic_clean} {raw_q}".strip()
+        else:
+            anchored_q = raw_q
+
+        fb_words = set(raw_fb.lower().split())
+        if not (topic_words & fb_words):
+            anchored_fb = f"{topic_clean} {raw_fb}".strip()
+        else:
+            anchored_fb = raw_fb
+
+        anchored_beats.append({
+            "query": anchored_q,
+            "fallback": anchored_fb
+        })
+
+    return anchored_beats if anchored_beats else [{"query": topic_clean, "fallback": topic_clean}]
 
 
 def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_state: bool = False):
@@ -230,11 +265,15 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
             print(f"\n[2/5] Synthesizing voiceover narration...")
             audio_file = os.path.join(task_dir, "audio.mp3")
             voice_config = profile.get("voice", {})
-            voice_name = voice_config.get("voice_name", "en-US-ChristopherNeural")
-            voice_rate = float(voice_config.get("voice_rate", 1.0))
+            # Ensure 100% clean script before voice synthesis (zero bracketed metrics or word counts)
+            clean_script = re.sub(r'\[.*?\]|\(.*?\)', '', state["script"]).strip()
+            clean_script = re.sub(r'(?i)\bword\s*count\s*:\s*\d+\b', '', clean_script).strip()
+            clean_script = re.sub(r'\*\*(?:Narrator|Voiceover|Audio|Host)\s*:\*\*', '', clean_script, flags=re.IGNORECASE).strip()
+            clean_script = re.sub(r'(?:Narrator|Voiceover|Audio|Host)\s*:\s*', '', clean_script, flags=re.IGNORECASE).strip()
+            state["script"] = clean_script
 
             sub_maker = voice.tts(
-                text=state["script"],
+                text=clean_script,
                 voice_name=voice_name,
                 voice_rate=voice_rate,
                 voice_file=audio_file,

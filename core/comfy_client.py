@@ -123,7 +123,7 @@ class ComfyClient:
             },
             "9": {
                 "inputs": {
-                    "filename_prefix": "MPT_SDXL",
+                    "filename_prefix": f"MPT_{int(time.time())}",
                     "images": ["8", 0]
                 },
                 "class_type": "SaveImage"
