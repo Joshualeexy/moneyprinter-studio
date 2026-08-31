@@ -304,6 +304,7 @@ def search_videos_pexels(
     search_term: str,
     minimum_duration: int,
     video_aspect: VideoAspect = VideoAspect.portrait,
+    negative_keywords: Optional[List[str]] = None,
 ) -> List[MaterialInfo]:
     aspect = VideoAspect(video_aspect)
     video_orientation = aspect.name
@@ -332,12 +333,25 @@ def search_videos_pexels(
             logger.error("pexels video search returned an unsupported response")
             return video_items
         videos = response["videos"]
-        # loop through each video in the result
+        
+        # Build dynamic negative keyword filter
+        neg_set = {k.lower().strip() for k in negative_keywords} if negative_keywords else set()
+
         for v in videos:
             duration = v["duration"]
             # check if video has desired minimum duration
             if duration < minimum_duration:
                 continue
+
+            # Dynamic exclusion if negative keywords are supplied
+            if neg_set:
+                v_url = (v.get("url") or "").lower()
+                v_tags = " ".join(str(t).lower() for t in v.get("tags", []))
+                v_meta = f"{v_url} {v_tags}"
+                if any(b in v_meta for b in neg_set):
+                    logger.debug(f"Pexels video excluded by dynamic negative filter: {v_url}")
+                    continue
+
             video_files = v["video_files"]
             # loop through each url to determine the best quality
             for video in video_files:

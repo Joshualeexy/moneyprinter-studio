@@ -106,21 +106,25 @@ def generate_niche_script(profile: dict, topic: str, research_context: str = "")
 
 
 def generate_visual_terms(script: str, topic: str, profile: dict) -> list[dict]:
-    """Generate high-precision search queries anchored strictly to the topic domain."""
+    """Generate high-precision search queries and hybrid generation routes anchored to the topic."""
     prompt = f"""Given this documentary video script about '{topic}', break it down into 6 to 8 sequential visual scene beats.
-For each beat, specify a search term for dynamic, cinematic vertical motion video B-roll (drone shots, moving landscape, atmospheric action).
+For each beat, categorize it as:
+- "stock": for filmable real-world footage (aerial landscapes, drone shots, buildings, factories, nature, city streets, machinery).
+- "generate": for unfilmable scenes that do NOT exist in stock footage (deep pitch-black subterranean ice caverns, microscopic extremophiles/bacteria, planetary surfaces of Europa/Mars, inside nanometer laser vacuum chambers, ancient lost tombs).
 
-CRITICAL SEARCH RULES:
-- EVERY query MUST be strictly relevant to '{topic}' and the actual scene described in the script.
-- NEVER suggest unrelated objects, generic terms, or out-of-context environments (e.g. NEVER suggest Roman ruins or computer chips for polar/ice topics).
-- Focus on authentic visual motion footage matching '{topic}' (e.g., "{topic} ice drill", "{topic} glacier flyover", "{topic} blizzard snowstorm", "{topic} subterranean lake", "{topic} frozen landscape").
+CRITICAL SEARCH & RELEVANCE RULES:
+- EVERY query MUST be strictly relevant to '{topic}' and the actual beat described in the script.
+- For "stock" beats, specify a cinematic motion search query and 1 to 2 "negative_terms" to explicitly avoid irrelevant misfires (e.g. for polar ice: negative_terms: ["fishing", "scuba", "beach"]; for semiconductor tech: negative_terms: ["food", "casino", "nature"]).
+- For "generate" beats, write a descriptive photorealistic SDXL prompt set in '{topic}' (8k, volumetric lighting, national geographic, textless).
 
 Script:
 "{script}"
 
 Return a JSON array of 6 to 8 objects where each object has:
-- "query": descriptive cinematic video search query for '{topic}'
+- "query": descriptive cinematic query or SDXL prompt for '{topic}'
 - "fallback": 1-2 word fallback term
+- "type": "stock" or "generate"
+- "negative_terms": list of 1 to 3 words to avoid (e.g. ["fishing", "beach"])
 
 Return ONLY the raw JSON array. No explanations, no markdown formatting."""
 
@@ -143,7 +147,7 @@ Return ONLY the raw JSON array. No explanations, no markdown formatting."""
 
     if not items:
         terms = [t.strip().strip('"').strip("'") for t in response.split(",") if t.strip()]
-        items = [{"query": t, "fallback": topic} for t in terms[:8]]
+        items = [{"query": t, "fallback": topic, "type": "stock", "negative_terms": []} for t in terms[:8]]
 
     # Post-process: Guarantee every query is anchored to the topic domain
     anchored_beats = []
@@ -155,7 +159,14 @@ Return ONLY the raw JSON array. No explanations, no markdown formatting."""
             continue
         raw_q = re.sub(r'["\']', '', item.get("query", "")).strip()
         raw_fb = re.sub(r'["\']', '', item.get("fallback", topic_clean)).strip()
-        
+        beat_type = item.get("type", "stock").lower()
+        if beat_type not in {"stock", "generate"}:
+            beat_type = "stock"
+
+        neg_terms = item.get("negative_terms", [])
+        if not isinstance(neg_terms, list):
+            neg_terms = []
+
         if not raw_q:
             continue
 
@@ -174,10 +185,12 @@ Return ONLY the raw JSON array. No explanations, no markdown formatting."""
 
         anchored_beats.append({
             "query": anchored_q,
-            "fallback": anchored_fb
+            "fallback": anchored_fb,
+            "type": beat_type,
+            "negative_terms": [str(t).lower().strip() for t in neg_terms if str(t).strip()]
         })
 
-    return anchored_beats if anchored_beats else [{"query": topic_clean, "fallback": topic_clean}]
+    return anchored_beats if anchored_beats else [{"query": topic_clean, "fallback": topic_clean, "type": "stock", "negative_terms": []}]
 
 
 def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_state: bool = False):
@@ -368,18 +381,36 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
                 clip_path = os.path.join(task_dir, f"scene_motion_{i+1}.mp4")
                 
                 acquired_video = None
-                
-                # Priority 1: Sourcing Real High-Definition Vertical Motion Video (Pexels)
+                beat_type = beat.get("type", "stock") if isinstance(beat, dict) else "stock"
+                beat_neg = beat.get("negative_terms", []) if isinstance(beat, dict) else []
+                profile_neg = visual_cfg.get("negative_keywords", [])
+                combined_neg = list(set(beat_neg + profile_neg))
+
+                # Route A: Unfilmable Beats -> Direct ComfyUI SDXL Generation + Ken Burns Motion
+                if beat_type == "generate" and comfy.ensure_running():
+                    print(f"  🎨 Scene {i+1}/{needed_clips}: Generating unfilmable scene '{query[:45]}...' via ComfyUI SDXL...")
+                    if comfy.generate_scene_image(query, img_path):
+                        image_to_cinematic_clip(
+                            image_path=img_path,
+                            output_clip_path=clip_path,
+                            duration=clip_dur,
+                            preset_index=i,
+                            fps=30
+                        )
+                        if os.path.exists(clip_path):
+                            cinematic_clips.append(clip_path)
+                            print(f"  ✓ Scene {i+1}/{needed_clips}: Animated SDXL scene via NVENC Ken Burns")
+                            continue
+
+                # Route B: Real Motion Video (Pexels) with Dynamic Negative Filtering
                 candidate_video_queries = [
                     query,
+                    f"{state['topic']} {query}" if state['topic'].lower() not in query.lower() else query,
                     fallback,
-                    f"{state['topic']} {query}",
+                    f"{state['topic']} {fallback}" if state['topic'].lower() not in fallback.lower() else fallback,
                     f"{state['topic']} drone",
                     f"{state['topic']} cinematic",
-                    f"{state['topic']} ocean" if "antarctica" in state['topic'].lower() else f"{state['topic']} landscape",
-                    "cinematic drone flyover",
-                    "dramatic weather timelapse",
-                    "cinematic storm landscape"
+                    f"{state['topic']} documentary"
                 ]
 
                 for q_try in candidate_video_queries:
@@ -390,7 +421,8 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
                         pexels_items = material.search_videos_pexels(
                             search_term=clean_q,
                             minimum_duration=3,
-                            video_aspect=aspect
+                            video_aspect=aspect,
+                            negative_keywords=combined_neg
                         )
                         for item in pexels_items:
                             if item.url not in used_video_urls:
@@ -409,7 +441,7 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
                     cinematic_clips.append(acquired_video)
                     continue
 
-                # Priority 2: ComfyUI SDXL or Archival Image with NVENC Ken Burns Motion (Fallback ONLY)
+                # Fallback: ComfyUI SDXL or Archival Image with NVENC Ken Burns Motion
                 print(f"  ℹ Motion video unavailable for '{query}', falling back to high-res still with NVENC Ken Burns...")
                 acquired_img = False
                 if comfy.is_alive():
@@ -428,7 +460,7 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
                         fps=30
                     )
                     cinematic_clips.append(clip_path)
-                    print(f"  ✓ Scene {i+1}/{needed_clips}: Animated still '{query}' via NVENC Ken Burns")
+                    print(f"  ✓ Scene {i+1}/{needed_clips}: Animated still '{query[:40]}' via NVENC Ken Burns")
                 else:
                     logger.warning(f"Failed to acquire visual for scene {i+1}")
 

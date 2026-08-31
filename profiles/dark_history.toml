@@ -50,6 +50,7 @@ source = "pexels"      # pexels | pixabay | local
 clip_duration = 3.0    # 2.5 - 3.5s rapid pacing
 transition_mode = "fade"
 concat_mode = "sequential"
+negative_keywords = ["fishing", "fisherman", "fishermen", "scuba", "coral", "reef", "beach", "aquarium", "bikini", "resort", "vacation", "party", "cooking", "workout"]
 
 [subtitle]
 font_name = "Montserrat-Black.ttf"

@@ -8,6 +8,12 @@ slug = "tech"
 description = "Silicon secrets, underground hardware hacks, AI breakthroughs, and forgotten computing history"
 language = "en"
 
+[video_target]
+min_duration = 61.0
+max_duration = 68.0
+min_words = 140
+max_words = 165
+
 [series]
 enabled = true
 current_arc = "The Hidden Chip War Behind Modern AI"
@@ -43,6 +49,7 @@ source = "pexels"
 clip_duration = 2.8
 transition_mode = "fade"
 concat_mode = "sequential"
+negative_keywords = ["nature", "wildlife", "cooking", "vacation", "party", "forest", "animals", "beach", "fishing"]
 
 [subtitle]
 enabled = true
