@@ -241,7 +241,6 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
             script = state.get("script")
             if not script:
                 script = generate_niche_script(profile, state["topic"], research_context=research_data.get("context", ""))
-                visual_beats = generate_visual_terms(script, state["topic"], profile)
                 
                 # Generate viral title & thumbnail concept
                 from core.thumbnail_generator import generate_title_and_thumbnail_concepts
@@ -249,28 +248,15 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
 
                 state.update({
                     "script": script,
-                    "visual_beats": visual_beats,
                     "title": thumb_concept.get("title", f"The Mystery of {state['topic']}"),
                     "thumbnail_text": thumb_concept.get("thumbnail_text", "THEY HID THIS"),
                     "thumbnail_prompt": thumb_concept.get("thumbnail_prompt", f"dramatic cinematic shot of {state['topic']}"),
                     "stage": "script_generated"
                 })
                 checkpoint.save(state)
-            
-            # Immediately unload Ollama LLM to free all 6.7 GB VRAM for GPU rendering
-            try:
-                import requests
-                app_cfg = _get_llm_config(profile)
-                m_name = app_cfg.get("ollama_model_name", "qwen3-coder-agent:latest")
-                requests.post("http://127.0.0.1:11434/api/generate", json={"model": m_name, "keep_alive": 0}, timeout=5)
-                logger.info("Unloaded Ollama LLM from GPU memory (RTX 2070 VRAM is 100% free).")
-            except Exception as _e:
-                logger.debug(f"Ollama unload skipped: {_e}")
 
             print(f"  ✓ Researched: '{research_data.get('title', state['topic'])}'")
-            print(f"  ✓ Script ready ({len(script.split())} words)")
-            query_preview = [b["query"] if isinstance(b, dict) else str(b) for b in state.get("visual_beats", [])]
-            print(f"  ✓ Scene beats ({len(query_preview)}): {', '.join(query_preview)}")
+            print(f"  ✓ Script ready ({len(state['script'].split())} words)")
 
         # -------------------------------------------------------------
         # STAGE 2: Voice Narration (Edge TTS or configured provider)
@@ -353,22 +339,43 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
             print(f"  ✓ Subtitles ready ({subtitle_path})")
 
         # -------------------------------------------------------------
-        # STAGE 4: Authentic Visual Harvesting & NVENC Ken Burns Motion
+        # STAGE 4: AI Movie Director — Storyboard & Visual Harvesting
         # -------------------------------------------------------------
         if state["stage"] in {"subtitle_generated", "materials_sourcing"}:
-            print(f"\n[4/5] Directing cinematic storyboard & harvesting authentic visuals...")
+            print(f"\n[4/5] AI Movie Director directing storyboard & harvesting visuals...")
             visual_cfg = profile.get("visual", {})
             aspect = VideoAspect(visual_cfg.get("aspect_ratio", "9:16"))
             clip_dur = float(visual_cfg.get("clip_duration", 3.0))
             audio_duration = float(state["audio_duration"])
             needed_clips = max(1, math.ceil(audio_duration / clip_dur))
-            
-            from core.director import MovieDirector
+
+            # Step 4A: Director plans the shotlist (requires Ollama LLM)
+            from core.director import MovieDirector, DirectorShot
+            import dataclasses
+
             director = MovieDirector(profile)
-            shots = director.plan_shotlist(state["script"], state["topic"], needed_clips)
+            cached_shots = state.get("director_shots")
+            if cached_shots and isinstance(cached_shots, list):
+                shots = [DirectorShot(**s) for s in cached_shots]
+                print(f"  ✓ Loaded {len(shots)} Director shots from checkpoint")
+            else:
+                shots = director.plan_shotlist(state["script"], state["topic"], needed_clips)
+                state["director_shots"] = [dataclasses.asdict(s) for s in shots]
+                checkpoint.save(state)
+
+                # Offload Ollama after Director finishes — VRAM must be 100% free before ComfyUI renders
+                try:
+                    import requests as _req
+                    app_cfg = _get_llm_config(profile)
+                    m_name = app_cfg.get("ollama_model_name", "qwen3-coder-agent:latest")
+                    _req.post("http://127.0.0.1:11434/api/generate", json={"model": m_name, "keep_alive": 0}, timeout=5)
+                    logger.info("[Director] Offloaded Ollama LLM — VRAM is 100% free for ComfyUI.")
+                except Exception:
+                    pass
 
             fetcher = VisualFetcher()
             comfy = ComfyClient()
+            comfy_available = None  # Cached result of ensure_running()
             cinematic_clips = []
             used_video_urls = set()
 
@@ -378,19 +385,22 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
                 acquired_clip = None
 
                 # PATH 1: Director designated as AI_GENERATIVE (unfilmable/microscopic/subterranean)
-                if shot.capture_method == "AI_GENERATIVE" and comfy.ensure_running():
-                    print(f"  🎬 Director Shot {i+1}/{needed_clips} [AI_GENERATIVE]: Rendering '{shot.sdxl_prompt[:50]}...' via ComfyUI SDXL")
-                    if comfy.generate_scene_image(shot.sdxl_prompt, img_path):
-                        image_to_cinematic_clip(
-                            image_path=img_path,
-                            output_clip_path=clip_path,
-                            duration=clip_dur,
-                            preset_index=i,
-                            fps=30
-                        )
-                        if os.path.exists(clip_path):
-                            acquired_clip = clip_path
-                            print(f"  ✓ Scene {i+1}/{needed_clips}: Animated custom SDXL scene via NVENC Ken Burns")
+                if shot.capture_method == "AI_GENERATIVE":
+                    if comfy_available is None:
+                        comfy_available = comfy.ensure_running()
+                    if comfy_available:
+                        print(f"  🎬 Director Shot {i+1}/{needed_clips} [AI_GENERATIVE]: Rendering '{shot.sdxl_prompt[:50]}...' via ComfyUI SDXL")
+                        if comfy.generate_scene_image(shot.sdxl_prompt, img_path):
+                            image_to_cinematic_clip(
+                                image_path=img_path,
+                                output_clip_path=clip_path,
+                                duration=clip_dur,
+                                preset_index=i,
+                                fps=30
+                            )
+                            if os.path.exists(clip_path):
+                                acquired_clip = clip_path
+                                print(f"  ✓ Scene {i+1}/{needed_clips}: Animated custom SDXL scene via NVENC Ken Burns")
 
                 # PATH 2: Director designated as STOCK_MOTION (filmable world footage)
                 if not acquired_clip:
@@ -434,7 +444,9 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
                 if not acquired_clip:
                     print(f"  🎬 Director Shot {i+1}/{needed_clips}: Stock misfired or unavailable. ComfyUI SDXL generating custom visual...")
                     acquired_img = False
-                    if comfy.ensure_running():
+                    if comfy_available is None:
+                        comfy_available = comfy.ensure_running()
+                    if comfy_available:
                         acquired_img = comfy.generate_scene_image(shot.sdxl_prompt, img_path)
                     if not acquired_img:
                         acquired_img = fetcher.harvest_visual_for_scene(shot.search_query, img_path, fallback_query=shot.fallback_query)

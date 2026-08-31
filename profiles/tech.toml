@@ -22,7 +22,8 @@ total_episodes = 3
 
 [llm]
 provider = "ollama"
-model = "qwen3-coder-agent:latest"
+model = "qwen3-coder-agent:latest"   # 30.5B: Master Scriptwriter (Deep narrative & semiconductor research)
+director_model = "qwen3:8b"          # 8B: Movie Director (Lightning-fast shotlist planning & zero VRAM strain)
 
 [persona]
 tone = "fast-paced, analytical, mind-blowing tech documentary, investigative"

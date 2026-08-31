@@ -70,8 +70,20 @@ For EACH of the {total_shots} sequential shots in the script, you must direct:
 Return a JSON array of {total_shots} objects. Return ONLY raw valid JSON."""
 
         from worker import _get_llm_config
-        app_cfg = _get_llm_config(self.profile)
+        app_cfg = dict(_get_llm_config(self.profile))
+        director_model = self.profile.get("llm", {}).get("director_model", "qwen3:8b")
+        app_cfg["ollama_model_name"] = director_model
+        logger.info(f"[Movie Director] Planning storyboard via fast lightweight '{director_model}'...")
+
         response = llm._generate_response(prompt, app_config=app_cfg)
+
+        # Immediately offload director model so 100% of GPU VRAM is free for ComfyUI SDXL
+        try:
+            import requests as _req
+            _req.post("http://127.0.0.1:11434/api/generate", json={"model": director_model, "keep_alive": 0}, timeout=5)
+            logger.info(f"[Movie Director] Offloaded '{director_model}' from GPU. VRAM is 100% free for ComfyUI.")
+        except Exception as _off_err:
+            logger.debug(f"[Movie Director] Model offload notice: {_off_err}")
 
         raw_shots = []
         try:
