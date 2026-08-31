@@ -5,7 +5,7 @@ import socket
 import threading
 import time
 from pathlib import Path
-from typing import Any, Callable, List
+from typing import Any, Callable, List, Optional
 from urllib.parse import quote_plus, urlencode, urlsplit, urlunsplit
 
 # Force IPv4 resolution to prevent SSLError / connection timeouts on hosts with unreachable IPv6

@@ -62,10 +62,10 @@ For EACH of the {total_shots} sequential shots in the script, you must direct:
 3. "capture_method":
    - "STOCK_MOTION": Real filmable world footage (drone flyovers, weather, landscapes, city streets, factories, laboratories, supercomputers).
    - "AI_GENERATIVE": UNFILMABLE scenes where cameras cannot physically exist in the real world (pitch-black subglacial lake 4000m deep, extremophile microbes, alien ocean on Europa/Mars, inside nanometer laser vacuum chambers, ancient tombs).
-4. "search_query": For STOCK_MOTION, a 2 to 4 word search term anchored strictly to '{topic}'.
+4. "search_query": For STOCK_MOTION, a 2 to 4 word search term anchored to physical reality in '{topic}' (e.g. "semiconductor cleanroom", "silicon wafer robot", "glacier ice shelf"). NEVER search for abstract politics or trade diplomacy (e.g. NEVER search "US-China trade war") because stock sites return random waving flags!
 5. "fallback_query": Simple 1-2 word fallback term.
 6. "sdxl_prompt": For AI_GENERATIVE or fallback, a photorealistic textless 8k prompt set in '{topic}' (cinematic lighting, national geographic, 35mm photograph, masterwork, textless).
-7. "avoid_concepts": List of 2 to 4 forbidden visual concepts that would ruin this shot (e.g. for polar ice: ["ice fishing", "recreation", "scuba diving", "sunny beach"]; for tech: ["food", "casino", "nature"]).
+7. "avoid_concepts": List of 2 to 4 forbidden visual concepts that would ruin this shot (e.g. for polar ice: ["ice fishing", "recreation", "scuba diving", "sunny beach"]; for tech: ["food", "casino", "nature", "flags"]).
 
 Return a JSON array of {total_shots} objects. Return ONLY raw valid JSON."""
 
@@ -166,5 +166,10 @@ Return a JSON array of {total_shots} objects. Return ONLY raw valid JSON."""
         for trash in generic_trash:
             if trash in candidate_text:
                 return False, f"Director rejected: matches generic non-documentary tag '{trash}'"
+
+        # 3. Reject generic waving flags and government press rooms unless script explicitly mentions a flag
+        flag_terms = {"flag", "waving-flag", "national-flag", "capitol", "white-house", "presidential"}
+        if any(f in candidate_text for f in flag_terms) and "flag" not in shot.script_segment.lower():
+            return False, f"Director rejected: generic national flag/capitol misfire in '{v_url}'"
 
         return True, "Director approved"
