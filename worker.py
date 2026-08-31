@@ -80,11 +80,28 @@ def build_system_script_prompt(profile: dict, topic: str) -> str:
 """
 
 
+def _get_llm_config(profile: dict) -> dict:
+    app_cfg = dict(config.app)
+    llm_cfg = profile.get("llm", {})
+    provider = llm_cfg.get("provider", "ollama").lower()
+    model = llm_cfg.get("model", "qwen3-coder-agent:latest")
+    app_cfg["llm_provider"] = provider
+    if provider == "ollama":
+        app_cfg["ollama_model_name"] = model
+        if not app_cfg.get("ollama_base_url"):
+            app_cfg["ollama_base_url"] = "http://127.0.0.1:11434/v1"
+    else:
+        app_cfg[f"{provider}_model_name"] = model
+    return app_cfg
+
+
 def generate_niche_script(profile: dict, topic: str) -> str:
     """Generate script adhering strictly to niche persona."""
     prompt = build_system_script_prompt(profile, topic)
-    logger.info(f"Generating niche script for subject: '{topic}'...")
-    response = llm._generate_response(prompt)
+    app_cfg = _get_llm_config(profile)
+    model_name = app_cfg.get("ollama_model_name") or profile.get("llm", {}).get("model", "qwen3-coder-agent:latest")
+    logger.info(f"Generating niche script for subject: '{topic}' via {model_name}...")
+    response = llm._generate_response(prompt, app_config=app_cfg)
     if not response or response.startswith("Error:"):
         raise RuntimeError(f"Script generation failed: {response}")
     return response.strip()
@@ -97,7 +114,8 @@ Script:
 "{script}"
 
 Return ONLY a comma-separated list of visual terms (e.g. ancient ruins, golden sunset, stormy ocean). No explanations."""
-    response = llm._generate_response(prompt)
+    app_cfg = _get_llm_config(profile)
+    response = llm._generate_response(prompt, app_config=app_cfg)
     terms = [t.strip().strip('"').strip("'") for t in response.split(",") if t.strip()]
     if not terms:
         terms = [profile['niche']['name'].lower(), "cinematic mystery"]

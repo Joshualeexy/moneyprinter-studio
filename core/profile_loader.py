@@ -25,6 +25,10 @@ def load_profile(profile_path: str) -> Dict[str, Any]:
     niche.setdefault("slug", path.stem)
     niche.setdefault("language", "en")
 
+    llm_cfg = data.setdefault("llm", {})
+    llm_cfg.setdefault("provider", "ollama")
+    llm_cfg.setdefault("model", "qwen3-coder-agent:latest")
+
     voice = data.setdefault("voice", {})
     voice.setdefault("provider", "edge")
     voice.setdefault("voice_name", "en-US-ChristopherNeural")

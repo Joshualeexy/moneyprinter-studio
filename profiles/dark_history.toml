@@ -14,6 +14,10 @@ current_arc = "Forbidden Inventions History Forgot"
 current_episode = 1
 total_episodes = 3
 
+[llm]
+provider = "ollama"
+model = "qwen3-coder-agent:latest"
+
 [persona]
 tone = "suspenseful, authoritative documentary, investigative"
 hook_style = "paradox_or_shock"
