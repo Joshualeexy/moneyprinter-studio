@@ -49,7 +49,9 @@ def build_system_script_prompt(profile: dict, topic: str, research_context: str 
     banned = persona.get("banned_phrases", [])
     banned_str = ", ".join(f'"{p}"' for p in banned) if banned else "None"
 
-    context_block = f"\n## Verified Historical Research & Facts:\n{research_context}\n" if research_context else ""
+    target_cfg = profile.get("video_target", {})
+    min_w = target_cfg.get("min_words", 140)
+    max_w = target_cfg.get("max_words", 165)
 
     return f"""# Role: Elite Short-Form Storyteller & Investigative Documentarian
 # Niche: {profile['niche']['name']} ({profile['niche']['description']})
@@ -59,7 +61,7 @@ def build_system_script_prompt(profile: dict, topic: str, research_context: str 
 1. Tone: {tone}.
 2. Pacing: Punchy, spoken-word cadence. Short sentences designed for maximum viewer retention.
 3. Hook (First 3 seconds): Must start with an impossible fact, cognitive paradox, or high-stakes reveal grounded in the evidence.
-4. Total Length: Between 65 and 95 words (approximately 30 to 45 seconds when spoken).
+4. Total Length: Between {min_w} and {max_w} words (ensures the spoken voiceover is 61 to 68 seconds, strictly over 1 minute for TikTok Creator Rewards and YouTube Shorts monetization).
 5. Grounding: Mention at least one specific artifact, date, or physical piece of evidence from the research.
 6. Strict Forbidden Phrases: Never use {banned_str}.
 7. Structure: Return ONLY the raw script to be read aloud. No stage directions, no narrator labels, no markdown headers, no quotes, and NEVER include word counts or bracketed notes (e.g. do NOT write "[Word count: 87]").

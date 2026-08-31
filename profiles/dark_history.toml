@@ -8,6 +8,12 @@ slug = "dark_history"
 description = "Untold historical paradoxes, ancient mysteries, and psychological warfare"
 language = "en"
 
+[video_target]
+min_duration = 61.0
+max_duration = 68.0
+min_words = 140
+max_words = 165
+
 [series]
 enabled = true
 current_arc = "Forbidden Inventions History Forgot"
