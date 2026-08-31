@@ -62,7 +62,7 @@ def build_system_script_prompt(profile: dict, topic: str, research_context: str 
 4. Total Length: Between 65 and 95 words (approximately 30 to 45 seconds when spoken).
 5. Grounding: Mention at least one specific artifact, date, or physical piece of evidence from the research.
 6. Strict Forbidden Phrases: Never use {banned_str}.
-7. Structure: Return ONLY the raw script to be read aloud. No stage directions, no narrator labels, no markdown headers, no quotes.
+7. Structure: Return ONLY the raw script to be read aloud. No stage directions, no narrator labels, no markdown headers, no quotes, and NEVER include word counts or bracketed notes (e.g. do NOT write "[Word count: 87]").
 """
 
 
@@ -90,7 +90,15 @@ def generate_niche_script(profile: dict, topic: str, research_context: str = "")
     response = llm._generate_response(prompt, app_config=app_cfg)
     if not response or response.startswith("Error:"):
         raise RuntimeError(f"Script generation failed: {response}")
-    return response.strip()
+
+    script = response.strip()
+    # Clean any LLM meta-commentary, word counts, or markdown notes
+    script = re.sub(r'\[\s*(?:word\s*count|words?|note|duration|hook).*?\]', '', script, flags=re.IGNORECASE)
+    script = re.sub(r'\(\s*(?:word\s*count|words?|note|duration|hook).*?\)', '', script, flags=re.IGNORECASE)
+    script = re.sub(r'(?i)\bword\s*count\s*:\s*\d+\b', '', script)
+    script = re.sub(r'\*\*(?:Narrator|Voiceover|Audio|Host)\s*:\*\*', '', script, flags=re.IGNORECASE)
+    script = re.sub(r'(?:Narrator|Voiceover|Audio|Host)\s*:\s*', '', script, flags=re.IGNORECASE)
+    return script.strip()
 
 
 def generate_visual_terms(script: str, topic: str, profile: dict) -> list[dict]:
