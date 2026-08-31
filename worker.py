@@ -28,55 +28,33 @@ from app.models.schema import VideoAspect, VideoConcatMode, VideoParams
 from app.services import llm, material, subtitle, video, voice
 from app.utils import utils
 from core.checkpoint import CheckpointManager
+from core.comfy_client import ComfyClient
+from core.motion import image_to_cinematic_clip
 from core.profile_loader import load_profile
+from core.researcher import fetch_topic_research
+from core.visual_fetcher import VisualFetcher
 
 
-def generate_fallback_visuals(task_dir: str, duration: float, aspect_ratio: str = "9:16", clip_duration: int = 4) -> list[str]:
-    """Generate high-contrast cinematic atmospheric clips via NVENC if stock API keys are absent."""
-    width, height = (1080, 1920) if aspect_ratio == "9:16" else (1920, 1080)
-    palette = [
-        ("0x0d1117", "0x161b22"),
-        ("0x1a0f1a", "0x2d142c"),
-        ("0x0b192c", "0x1e3e62"),
-        ("0x1f1717", "0x2e073f"),
-        ("0x0a0a0a", "0x1f2022"),
-    ]
-    clips = []
-    needed_clips = max(1, math.ceil(duration / clip_duration))
-    for i in range(needed_clips):
-        c0, c1 = palette[i % len(palette)]
-        clip_path = os.path.join(task_dir, f"procedural_clip_{i+1}.mp4")
-        if not os.path.exists(clip_path):
-            cmd = [
-                utils.get_ffmpeg_binary(), "-y",
-                "-f", "lavfi",
-                "-i", f"gradients=s={width}x{height}:d={clip_duration}:c0={c0}:c1={c1}:speed=0.01",
-                "-c:v", "h264_nvenc",
-                "-pix_fmt", "yuv420p",
-                clip_path
-            ]
-            subprocess.run(cmd, capture_output=True, check=True)
-        clips.append(clip_path)
-    return clips
-
-
-def build_system_script_prompt(profile: dict, topic: str) -> str:
+def build_system_script_prompt(profile: dict, topic: str, research_context: str = "") -> str:
     persona = profile.get("persona", {})
-    tone = persona.get("tone", "engaging, cinematic, dramatic")
+    tone = persona.get("tone", "suspenseful, investigative, documentary")
     banned = persona.get("banned_phrases", [])
     banned_str = ", ".join(f'"{p}"' for p in banned) if banned else "None"
 
-    return f"""# Role: Elite Short-Form Storyteller & Video Scriptwriter
+    context_block = f"\n## Verified Historical Research & Facts:\n{research_context}\n" if research_context else ""
+
+    return f"""# Role: Elite Short-Form Storyteller & Investigative Documentarian
 # Niche: {profile['niche']['name']} ({profile['niche']['description']})
 # Subject: {topic}
-
+{context_block}
 ## Guidelines:
 1. Tone: {tone}.
 2. Pacing: Punchy, spoken-word cadence. Short sentences designed for maximum viewer retention.
-3. Hook (First 3 seconds): Must start with an impossible fact, cognitive paradox, or high-stakes reveal.
-4. Total Length: Between 60 and 110 words (approximately 30 to 45 seconds when spoken).
-5. Strict Forbidden Phrases: Never use {banned_str}.
-6. Structure: Return ONLY the raw script to be read aloud. No stage directions, no narrator labels, no markdown headers, no quotes.
+3. Hook (First 3 seconds): Must start with an impossible fact, cognitive paradox, or high-stakes reveal grounded in the evidence.
+4. Total Length: Between 65 and 95 words (approximately 30 to 45 seconds when spoken).
+5. Grounding: Mention at least one specific artifact, date, or physical piece of evidence from the research.
+6. Strict Forbidden Phrases: Never use {banned_str}.
+7. Structure: Return ONLY the raw script to be read aloud. No stage directions, no narrator labels, no markdown headers, no quotes.
 """
 
 
@@ -95,31 +73,50 @@ def _get_llm_config(profile: dict) -> dict:
     return app_cfg
 
 
-def generate_niche_script(profile: dict, topic: str) -> str:
-    """Generate script adhering strictly to niche persona."""
-    prompt = build_system_script_prompt(profile, topic)
+def generate_niche_script(profile: dict, topic: str, research_context: str = "") -> str:
+    """Generate script adhering strictly to niche persona and researched facts."""
+    prompt = build_system_script_prompt(profile, topic, research_context)
     app_cfg = _get_llm_config(profile)
     model_name = app_cfg.get("ollama_model_name") or profile.get("llm", {}).get("model", "qwen3-coder-agent:latest")
-    logger.info(f"Generating niche script for subject: '{topic}' via {model_name}...")
+    logger.info(f"Generating research-grounded script for '{topic}' via {model_name}...")
     response = llm._generate_response(prompt, app_config=app_cfg)
     if not response or response.startswith("Error:"):
         raise RuntimeError(f"Script generation failed: {response}")
     return response.strip()
 
 
-def generate_visual_terms(script: str, profile: dict) -> list[str]:
-    """Generate high-relevance visual search terms matching script beats."""
-    prompt = f"""Given this video narration script, extract 3 to 6 high-quality, cinematic visual search terms (1-2 English words each) that can find matching B-roll footage.
+def generate_visual_terms(script: str, topic: str, profile: dict) -> list[dict]:
+    """Generate high-precision search queries for each visual beat in the narrative."""
+    prompt = f"""Given this documentary video script about '{topic}', break it down into 4 to 6 sequential visual scene beats.
+For each beat, specify a search term for an authentic historical photo, artifact, or archival document to display.
+
 Script:
 "{script}"
 
-Return ONLY a comma-separated list of visual terms (e.g. ancient ruins, golden sunset, stormy ocean). No explanations."""
+Return a JSON array of 4 to 6 objects where each object has:
+- "query": a specific search term for an authentic archival document, artifact, photo, or relief (e.g. "Voynich manuscript astronomical chart folio", "ancient cipher codebreaking desk")
+- "fallback": a simpler fallback search term (e.g. "medieval codex parchment")
+
+Return ONLY the raw JSON array. No explanations, no markdown formatting."""
+
     app_cfg = _get_llm_config(profile)
     response = llm._generate_response(prompt, app_config=app_cfg)
+    
+    try:
+        cleaned = response.strip()
+        if "```" in cleaned:
+            parts = cleaned.split("```")
+            cleaned = parts[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+        items = json.loads(cleaned.strip())
+        if isinstance(items, list) and items:
+            return items
+    except Exception as e:
+        logger.debug(f"JSON visual beat parsing fallback: {e}")
+
     terms = [t.strip().strip('"').strip("'") for t in response.split(",") if t.strip()]
-    if not terms:
-        terms = [profile['niche']['name'].lower(), "cinematic mystery"]
-    return terms[:6]
+    return [{"query": t, "fallback": topic} for t in terms[:6]]
 
 
 def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_state: bool = False):
@@ -155,22 +152,33 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
 
     try:
         # -------------------------------------------------------------
-        # STAGE 1: Topic & Script Generation
+        # STAGE 1: Research, Topic & Grounded Script
         # -------------------------------------------------------------
         if state["stage"] in {"start", "script_generating"}:
-            print(f"\n[1/5] Writing script for '{state['topic']}'...")
+            print(f"\n[1/5] Researching & writing script for '{state['topic']}'...")
+            
+            # Step 1A: Research factual evidence
+            research_data = state.get("research")
+            if not research_data:
+                research_data = fetch_topic_research(state["topic"])
+                state["research"] = research_data
+
+            # Step 1B: Generate grounded script
             script = state.get("script")
             if not script:
-                script = generate_niche_script(profile, state["topic"])
-                terms = generate_visual_terms(script, profile)
+                script = generate_niche_script(profile, state["topic"], research_context=research_data.get("context", ""))
+                visual_beats = generate_visual_terms(script, state["topic"], profile)
                 state.update({
                     "script": script,
-                    "terms": terms,
+                    "visual_beats": visual_beats,
                     "stage": "script_generated"
                 })
                 checkpoint.save(state)
+            
+            print(f"  ✓ Researched: '{research_data.get('title', state['topic'])}'")
             print(f"  ✓ Script ready ({len(script.split())} words)")
-            print(f"  ✓ Visual terms: {', '.join(state['terms'])}")
+            query_preview = [b["query"] if isinstance(b, dict) else str(b) for b in state.get("visual_beats", [])]
+            print(f"  ✓ Scene beats ({len(query_preview)}): {', '.join(query_preview)}")
 
         # -------------------------------------------------------------
         # STAGE 2: Voice Narration (Edge TTS or configured provider)
@@ -231,45 +239,67 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
             print(f"  ✓ Subtitles ready ({subtitle_path})")
 
         # -------------------------------------------------------------
-        # STAGE 4: Visual Materials Sourcing
+        # STAGE 4: Authentic Visual Harvesting & NVENC Ken Burns Motion
         # -------------------------------------------------------------
         if state["stage"] in {"subtitle_generated", "materials_sourcing"}:
-            print(f"\n[4/5] Preparing visual scene footage ({profile['visual']['source']})...")
+            print(f"\n[4/5] Harvesting authentic visual evidence & rendering Ken Burns camera motion...")
             visual_cfg = profile.get("visual", {})
-            source = visual_cfg.get("source", "pexels")
-            aspect = VideoAspect(visual_cfg.get("aspect_ratio", "9:16"))
-            clip_dur = int(visual_cfg.get("clip_duration", 3))
+            clip_dur = float(visual_cfg.get("clip_duration", 3.2))
+            audio_duration = float(state["audio_duration"])
+            needed_clips = max(1, math.ceil(audio_duration / clip_dur))
+            
+            fetcher = VisualFetcher()
+            comfy = ComfyClient()
+            cinematic_clips = []
+            
+            beats = state.get("visual_beats", [])
+            if not beats:
+                beats = [{"query": state["topic"], "fallback": state["topic"]}]
 
-            downloaded_videos = []
-            try:
-                downloaded_videos = material.download_videos(
-                    task_id=task_id,
-                    search_terms=state["terms"],
-                    source=source,
-                    video_aspect=aspect,
-                    video_concat_mode=VideoConcatMode.sequential,
-                    audio_duration=state["audio_duration"],
-                    max_clip_duration=clip_dur,
-                    match_script_order=True,
-                )
-            except Exception as e:
-                logger.warning(f"Stock material download skipped ({e}). Using cinematic atmospheric visuals.")
+            for i in range(needed_clips):
+                beat = beats[i % len(beats)]
+                query = beat.get("query") if isinstance(beat, dict) else str(beat)
+                fallback = beat.get("fallback", state["topic"]) if isinstance(beat, dict) else state["topic"]
+                
+                img_path = os.path.join(task_dir, f"scene_evidence_{i+1}.jpg")
+                clip_path = os.path.join(task_dir, f"scene_motion_{i+1}.mp4")
+                
+                acquired = False
+                # Try 1: Authentic Archival / Web Harvest (Wikimedia / DuckDuckGo)
+                if fetcher.harvest_visual_for_scene(query, img_path, fallback_query=fallback):
+                    acquired = True
+                
+                # Try 2: ComfyUI SDXL if server online
+                if not acquired and comfy.is_alive():
+                    acquired = comfy.generate_scene_image(query, img_path)
 
-            if not downloaded_videos:
-                print("  ℹ Generating cinematic atmospheric visuals via NVENC...")
-                downloaded_videos = generate_fallback_visuals(
-                    task_dir=task_dir,
-                    duration=state["audio_duration"],
-                    aspect_ratio=visual_cfg.get("aspect_ratio", "9:16"),
-                    clip_duration=clip_dur,
-                )
+                # Try 3: General topic query
+                if not acquired:
+                    acquired = fetcher.harvest_visual_for_scene(state["topic"], img_path)
+
+                # Render dynamic Ken Burns video clip from acquired image via NVENC
+                if acquired and os.path.exists(img_path):
+                    image_to_cinematic_clip(
+                        image_path=img_path,
+                        output_clip_path=clip_path,
+                        duration=clip_dur,
+                        preset_index=i,
+                        fps=30
+                    )
+                    cinematic_clips.append(clip_path)
+                    print(f"  ✓ Scene {i+1}/{needed_clips}: Animated '{query}' via NVENC Ken Burns")
+                else:
+                    logger.warning(f"Failed to acquire image for scene {i+1}")
+
+            if not cinematic_clips:
+                raise RuntimeError("Failed to acquire authentic visual footage.")
 
             state.update({
-                "materials": downloaded_videos,
+                "materials": cinematic_clips,
                 "stage": "materials_ready"
             })
             checkpoint.save(state)
-            print(f"  ✓ Acquired {len(downloaded_videos)} visual clips.")
+            print(f"  ✓ Successfully produced {len(cinematic_clips)} animated visual scene clips.")
 
         # -------------------------------------------------------------
         # STAGE 5: Hardware-Accelerated NVENC Compositing
@@ -348,7 +378,7 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
                 "duration_seconds": state["audio_duration"],
                 "file_path": str(dest_mp4.resolve()),
                 "file_size_mb": round(dest_mp4.stat().st_size / (1024 * 1024), 2),
-                "visual_terms": state["terms"],
+                "visual_terms": state.get("visual_beats") or state.get("terms", []),
                 "created_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(state["created_at"])),
                 "completed_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
             }
