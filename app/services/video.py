@@ -1,3 +1,79 @@
+import json
+
+def build_karaoke_clips(word_cues, font_path, font_size=56, video_w=1080, video_h=1920, target_y_ratio=0.70):
+    font = ImageFont.truetype(font_path, int(font_size))
+    dummy = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+    d_test = ImageDraw.Draw(dummy)
+    space_w = d_test.textlength(" ", font=font)
+
+    # Group into concise phrases (2-3 words, breaking on punctuation)
+    phrases = []
+    curr = []
+    for c in word_cues:
+        curr.append(c)
+        w_raw = c["word"]
+        if len(curr) >= 3 or w_raw.endswith((".", "?", "!", ",", ";", ":")):
+            phrases.append(curr)
+            curr = []
+    if curr:
+        phrases.append(curr)
+
+    clips = []
+    for phrase in phrases:
+        clean_words = [c["word"].rstrip(".?!,;:").upper() for c in phrase]
+        word_widths = [d_test.textlength(w, font=font) for w in clean_words]
+        total_text_w = sum(word_widths) + space_w * (len(clean_words) - 1)
+
+        # Scale down if exceeds safe width (900px)
+        scale = 1.0
+        if total_text_w > 900:
+            scale = 900 / total_text_w
+            scaled_font = ImageFont.truetype(font_path, max(28, int(font_size * scale)))
+            word_widths = [d_test.textlength(w, font=scaled_font) for w in clean_words]
+            space_w_scaled = d_test.textlength(" ", font=scaled_font)
+            total_text_w = sum(word_widths) + space_w_scaled * (len(clean_words) - 1)
+            use_font = scaled_font
+            use_space_w = space_w_scaled
+        else:
+            use_font = font
+            use_space_w = space_w
+
+        bbox = d_test.textbbox((0, 0), "Aj", font=use_font, stroke_width=7)
+        line_h = bbox[3] - bbox[1]
+
+        pad = 24
+        card_w = int(total_text_w + pad * 2)
+        card_h = int(line_h + pad * 2)
+
+        for i, cue in enumerate(phrase):
+            img = Image.new("RGBA", (card_w, card_h), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(img)
+
+            # Draw tight, fitted dark background box hugging this specific line
+            draw.rounded_rectangle([0, 0, card_w, card_h], radius=10, fill=(0, 0, 0, 245))
+
+            cur_x = pad
+            y = pad - bbox[1]
+            for j, (w_text, w_w) in enumerate(zip(clean_words, word_widths)):
+                # Vibrant Gold/Yellow for active spoken word, pure crisp White for others
+                fill_color = (255, 215, 0, 255) if j == i else (255, 255, 255, 255)
+                draw.text(
+                    (cur_x, y),
+                    w_text,
+                    font=use_font,
+                    fill=fill_color,
+                    stroke_width=2,
+                    stroke_fill=(0, 0, 0, 255)
+                )
+                cur_x += w_w + use_space_w
+
+            arr = np.array(img)
+            pos_y = int(video_h * target_y_ratio - card_h / 2)
+            c_clip = ImageClip(arr, is_mask=False).with_start(cue["start"]).with_end(cue["end"]).with_position(("center", pos_y))
+            clips.append(c_clip)
+
+    return clips
+
 import itertools
 import io
 import os
@@ -23,7 +99,8 @@ from moviepy import (
     afx,
 )
 from moviepy.video.tools.subtitles import SubtitlesClip
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
+import numpy as np
 
 from app.config import config
 from app.models import const
@@ -1157,22 +1234,61 @@ def generate_video(
                 size=size,
             )
         else:
-            size = (
-                int(max_width),
-                clip_h,
-            )
-            _clip = TextClip(
-                text=wrapped_txt,
-                font=font_path,
-                font_size=params.font_size,
-                color=params.text_fore_color,
-                bg_color=None,
-                stroke_color=params.stroke_color,
-                stroke_width=params.stroke_width,
-                interline=interline,
-                size=size,
-                text_align="center",
-            )
+            # CapCut-Style Neon Glow & High-Impact Aesthetic Subtitle Card
+            try:
+                neon_font = ImageFont.truetype(font_path, int(params.font_size))
+                dummy = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+                d_test = ImageDraw.Draw(dummy)
+                bbox = d_test.multiline_textbbox(
+                    (0, 0), wrapped_txt, font=neon_font, stroke_width=int(params.stroke_width), align="center", spacing=interline
+                )
+                tw = int(bbox[2] - bbox[0])
+                th = int(bbox[3] - bbox[1])
+                pad = max(24, int(params.stroke_width * 4))
+                card_w = int(tw + pad * 2)
+                card_h = int(th + pad * 2)
+
+                # Layer 1: Neon Cyan/Gold Atmospheric Glow
+                glow_mask = Image.new("L", (card_w, card_h), 0)
+                d_glow = ImageDraw.Draw(glow_mask)
+                d_glow.multiline_text(
+                    (pad - bbox[0], pad - bbox[1]), wrapped_txt, font=neon_font, fill=255, stroke_width=int(params.stroke_width + 4), align="center", spacing=interline
+                )
+                glow_filtered = glow_mask.filter(ImageFilter.GaussianBlur(radius=8))
+                # Vibrant Neon Cyan Accent (0, 240, 255)
+                glow_layer = Image.new("RGBA", (card_w, card_h), (0, 240, 255, 0))
+                glow_layer.putalpha(glow_filtered)
+
+                # Layer 2: Main Bold Text with Deep Outer Shadow/Stroke
+                text_layer = Image.new("RGBA", (card_w, card_h), (0, 0, 0, 0))
+                d_text = ImageDraw.Draw(text_layer)
+                d_text.multiline_text(
+                    (pad - bbox[0], pad - bbox[1]),
+                    wrapped_txt,
+                    font=neon_font,
+                    fill=(255, 255, 255, 255),
+                    stroke_width=int(params.stroke_width),
+                    stroke_fill=(0, 0, 0, 255),
+                    align="center",
+                    spacing=interline,
+                )
+                final_neon_img = Image.alpha_composite(glow_layer, text_layer)
+                _clip = ImageClip(np.array(final_neon_img), is_mask=False)
+            except Exception as e:
+                logger.warning(f"CapCut neon render failed, fallback: {e}")
+                size = (int(max_width), clip_h)
+                _clip = TextClip(
+                    text=wrapped_txt,
+                    font=font_path,
+                    font_size=params.font_size,
+                    color=params.text_fore_color,
+                    bg_color=None,
+                    stroke_color=params.stroke_color,
+                    stroke_width=params.stroke_width,
+                    interline=interline,
+                    size=size,
+                    text_align="center",
+                )
         duration = subtitle_item[0][1] - subtitle_item[0][0]
         _clip = _clip.with_start(subtitle_item[0][0])
         _clip = _clip.with_end(subtitle_item[0][1])
@@ -1215,7 +1331,32 @@ def generate_video(
                 font_size=params.font_size,
             )
 
-        if subtitle_path and os.path.exists(subtitle_path):
+        karaoke_json_file = os.path.join(output_dir, "karaoke.json")
+        if os.path.exists(karaoke_json_file):
+            try:
+                with open(karaoke_json_file, "r", encoding="utf-8") as kf:
+                    word_cues = json.load(kf)
+                if word_cues:
+                    logger.info(f"Mounting mature bold karaoke subtitles with {len(word_cues)} synchronized cues.")
+                    target_ratio = float(getattr(params, "custom_position", 70.0)) / 100.0
+                    karaoke_clips = build_karaoke_clips(
+                        word_cues,
+                        font_path=font_path,
+                        font_size=params.font_size,
+                        video_w=video_width,
+                        video_h=video_height,
+                        target_y_ratio=target_ratio
+                    )
+                    video_clip = CompositeVideoClip([video_clip, *karaoke_clips])
+                    clip_stack.callback(video_clip.close)
+            except Exception as k_err:
+                logger.warning(f"Karaoke subtitle loading failed, fallback to SRT: {k_err}")
+                if subtitle_path and os.path.exists(subtitle_path):
+                    sub = clip_stack.enter_context(SubtitlesClip(subtitles=subtitle_path, encoding="utf-8", make_textclip=make_textclip))
+                    text_clips = [create_text_clip(item) for item in sub.subtitles]
+                    video_clip = CompositeVideoClip([video_clip, *text_clips])
+                    clip_stack.callback(video_clip.close)
+        elif subtitle_path and os.path.exists(subtitle_path):
             sub = clip_stack.enter_context(
                 SubtitlesClip(
                     subtitles=subtitle_path,

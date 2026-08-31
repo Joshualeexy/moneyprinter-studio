@@ -37,6 +37,21 @@ class ComfyClient:
         except Exception:
             return False
 
+    def ensure_running(self) -> bool:
+        """Auto-start ComfyUI if offline as a detached daemon process."""
+        if self.is_alive():
+            return True
+        import subprocess
+        logger.info("[ComfyUI] Server is offline, launching ComfyUI on RTX 2070...")
+        cmd = "cd /home/kodar/comfyui/ComfyUI && ./venv/bin/python main.py --listen 127.0.0.1 --port 8188 --lowvram --dont-print-server"
+        subprocess.Popen(cmd, shell=True, executable="/bin/bash", start_new_session=True)
+        for _ in range(35):
+            time.sleep(1)
+            if self.is_alive():
+                logger.info("[ComfyUI] Server is ready and responsive.")
+                return True
+        return False
+
     def generate_scene_image(
         self,
         prompt_text: str,
@@ -48,7 +63,7 @@ class ComfyClient:
         """
         Submits prompt to ComfyUI and waits for output image.
         """
-        if not self.is_alive():
+        if not self.ensure_running():
             logger.debug("ComfyUI server is not online.")
             return False
 
@@ -59,10 +74,10 @@ class ComfyClient:
             "3": {
                 "inputs": {
                     "seed": seed,
-                    "steps": 24,
+                    "steps": 15,
                     "cfg": 6.5,
-                    "sampler_name": "euler",
-                    "scheduler": "normal",
+                    "sampler_name": "dpmpp_2m",
+                    "scheduler": "karras",
                     "denoise": 1,
                     "model": ["4", 0],
                     "positive": ["6", 0],
@@ -124,24 +139,28 @@ class ComfyClient:
             prompt_id = prompt_res["prompt_id"]
 
             # Poll for completion
-            for _ in range(60):
+            for _ in range(90):
                 time.sleep(2)
-                h_req = urllib.request.Request(f"{self.base_url}/history/{prompt_id}")
-                history_res = json.loads(urllib.request.urlopen(h_req, timeout=5).read())
-                if prompt_id in history_res:
-                    outputs = history_res[prompt_id].get("outputs", {})
-                    if "9" in outputs and "images" in outputs["9"]:
-                        img_info = outputs["9"]["images"][0]
-                        filename = img_info["filename"]
-                        subfolder = img_info.get("subfolder", "")
-                        view_url = f"{self.base_url}/view?filename={filename}&subfolder={subfolder}&type=output"
-                        
-                        r_img = requests.get(view_url, timeout=30)
-                        if r_img.status_code == 200:
-                            with open(output_path, "wb") as f:
-                                f.write(r_img.content)
-                            logger.info(f"[ComfyUI] Successfully saved render to {output_path}")
-                            return True
+                try:
+                    h_res = self.session.get(f"{self.base_url}/history/{prompt_id}", timeout=20)
+                    if h_res.status_code == 200:
+                        history_res = h_res.json()
+                        if prompt_id in history_res:
+                            outputs = history_res[prompt_id].get("outputs", {})
+                            if "9" in outputs and "images" in outputs["9"]:
+                                img_info = outputs["9"]["images"][0]
+                                filename = img_info["filename"]
+                                subfolder = img_info.get("subfolder", "")
+                                view_url = f"{self.base_url}/view?filename={filename}&subfolder={subfolder}&type=output"
+                                
+                                r_img = requests.get(view_url, timeout=30)
+                                if r_img.status_code == 200:
+                                    with open(output_path, "wb") as f:
+                                        f.write(r_img.content)
+                                    logger.info(f"[ComfyUI] Successfully saved render to {output_path}")
+                                    return True
+                except Exception as _poll_err:
+                    pass
             return False
         except Exception as e:
             logger.warning(f"[ComfyUI] Generation failed: {e}")

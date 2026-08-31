@@ -8,6 +8,14 @@ and NVENC hardware-accelerated rendering. Modeled on the AffiliateKage design.
 """
 
 import os
+import socket
+
+# Force IPv4 resolution to prevent SSLError / connection timeouts on hosts with unreachable IPv6
+_orig_getaddrinfo = socket.getaddrinfo
+def _getaddrinfo_ipv4(host, port, family=0, type=0, proto=0, flags=0):
+    return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+socket.getaddrinfo = _getaddrinfo_ipv4
+
 # Ensure MoviePy and imageio use system FFmpeg with NVENC hardware acceleration
 os.environ["IMAGEIO_FFMPEG_EXE"] = "/usr/bin/ffmpeg"
 
@@ -88,19 +96,21 @@ def generate_niche_script(profile: dict, topic: str, research_context: str = "")
 def generate_visual_terms(script: str, topic: str, profile: dict) -> list[dict]:
     """Generate high-precision search queries for each visual beat in the narrative."""
     prompt = f"""Given this documentary video script about '{topic}', break it down into 4 to 6 sequential visual scene beats.
-For each beat, specify a concise 2 to 3 word search term for an authentic photograph, artifact, or landscape to display.
+For each beat, specify a punchy 1 to 2 word search term for dynamic, cinematic vertical motion video B-roll (drone shots, moving landscape, atmospheric action, slow motion).
 
-IMPORTANT SEARCH RULES:
-- Queries must be SHORT (2 to 3 words max). Search engines fail on long sentences.
-- Focus on tangible, photographable things (e.g. "{topic} glacier", "{topic} ice core", "{topic} fossil leaf", "{topic} iceberg").
-- Never include words like "discovery", "evidence", "proves", "dating back".
+IMPORTANT VISUAL SEARCH RULES:
+- Queries must be 1 to 2 words ONLY describing cinematic motion footage.
+  * If polar / cold / Antarctica -> "glacier ice", "iceberg ocean", "snow blizzard", "drone mountains", "polar water".
+  * If historical / ancient -> "ancient ruins", "desert storm", "torch fire", "dark forest", "drone castle".
+  * If tech / future -> "datacenter server", "microchip", "cyber neon", "drone city night".
+- NEVER use abstract phrases, sentence fragments, or generic words like "history" or "discovery".
 
 Script:
 "{script}"
 
 Return a JSON array of 4 to 6 objects where each object has:
-- "query": 2 to 3 word search term (e.g. "{topic} glacier", "{topic} fossil plant")
-- "fallback": 2 word fallback term (e.g. "{topic} ice")
+- "query": 1 to 2 word cinematic video search term (e.g. "glacier ice", "drone mountains")
+- "fallback": 1 word fallback term (e.g. "iceberg", "snow")
 
 Return ONLY the raw JSON array. No explanations, no markdown formatting."""
 
@@ -168,18 +178,36 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
                 research_data = fetch_topic_research(state["topic"])
                 state["research"] = research_data
 
-            # Step 1B: Generate grounded script
+            # Step 1B: Generate grounded script, viral title, and thumbnail hook
             script = state.get("script")
             if not script:
                 script = generate_niche_script(profile, state["topic"], research_context=research_data.get("context", ""))
                 visual_beats = generate_visual_terms(script, state["topic"], profile)
+                
+                # Generate viral title & thumbnail concept
+                from core.thumbnail_generator import generate_title_and_thumbnail_concepts
+                thumb_concept = generate_title_and_thumbnail_concepts(script, state["topic"], profile)
+
                 state.update({
                     "script": script,
                     "visual_beats": visual_beats,
+                    "title": thumb_concept.get("title", f"The Mystery of {state['topic']}"),
+                    "thumbnail_text": thumb_concept.get("thumbnail_text", "THEY HID THIS"),
+                    "thumbnail_prompt": thumb_concept.get("thumbnail_prompt", f"dramatic cinematic shot of {state['topic']}"),
                     "stage": "script_generated"
                 })
                 checkpoint.save(state)
             
+            # Immediately unload Ollama LLM to free all 6.7 GB VRAM for GPU rendering
+            try:
+                import requests
+                app_cfg = _get_llm_config(profile)
+                m_name = app_cfg.get("ollama_model_name", "qwen3-coder-agent:latest")
+                requests.post("http://127.0.0.1:11434/api/generate", json={"model": m_name, "keep_alive": 0}, timeout=5)
+                logger.info("Unloaded Ollama LLM from GPU memory (RTX 2070 VRAM is 100% free).")
+            except Exception as _e:
+                logger.debug(f"Ollama unload skipped: {_e}")
+
             print(f"  ✓ Researched: '{research_data.get('title', state['topic'])}'")
             print(f"  ✓ Script ready ({len(script.split())} words)")
             query_preview = [b["query"] if isinstance(b, dict) else str(b) for b in state.get("visual_beats", [])]
@@ -233,11 +261,26 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
             )
             voice.create_subtitle(text=state["script"], sub_maker=sub_maker, subtitle_file=subtitle_path)
             
+            # Export word-level cues for mature bold karaoke synchronization
+            word_cues = []
+            if hasattr(sub_maker, "cues") and sub_maker.cues:
+                for c in sub_maker.cues:
+                    word_cues.append({
+                        "word": str(c.content).strip(),
+                        "start": float(c.start.total_seconds()),
+                        "end": float(c.end.total_seconds())
+                    })
+            karaoke_json_file = os.path.join(task_dir, "karaoke.json")
+            with open(karaoke_json_file, "w", encoding="utf-8") as kf:
+                json.dump(word_cues, kf, indent=2)
+            print(f"  ✓ Extracted {len(word_cues)} word-level cues for mature bold karaoke highlighting.")
+
             if not os.path.exists(subtitle_path):
                 raise RuntimeError("Failed to generate subtitle track.")
 
             state.update({
                 "subtitle_path": subtitle_path,
+                "karaoke_path": karaoke_json_file,
                 "stage": "subtitle_generated"
             })
             checkpoint.save(state)
@@ -249,6 +292,7 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
         if state["stage"] in {"subtitle_generated", "materials_sourcing"}:
             print(f"\n[4/5] Harvesting authentic visual evidence & rendering Ken Burns camera motion...")
             visual_cfg = profile.get("visual", {})
+            aspect = VideoAspect(visual_cfg.get("aspect_ratio", "9:16"))
             clip_dur = float(visual_cfg.get("clip_duration", 3.2))
             audio_duration = float(state["audio_duration"])
             needed_clips = max(1, math.ceil(audio_duration / clip_dur))
@@ -256,6 +300,7 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
             fetcher = VisualFetcher()
             comfy = ComfyClient()
             cinematic_clips = []
+            used_video_urls = set()
             
             beats = state.get("visual_beats", [])
             if not beats:
@@ -269,21 +314,59 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
                 img_path = os.path.join(task_dir, f"scene_evidence_{i+1}.jpg")
                 clip_path = os.path.join(task_dir, f"scene_motion_{i+1}.mp4")
                 
-                acquired = False
-                # Try 1: Authentic Archival / Web Harvest (Wikimedia / DuckDuckGo)
-                if fetcher.harvest_visual_for_scene(query, img_path, fallback_query=fallback):
-                    acquired = True
+                acquired_video = None
                 
-                # Try 2: ComfyUI SDXL if server online
-                if not acquired and comfy.is_alive():
-                    acquired = comfy.generate_scene_image(query, img_path)
+                # Priority 1: Sourcing Real High-Definition Vertical Motion Video (Pexels)
+                candidate_video_queries = [
+                    query,
+                    fallback,
+                    f"{state['topic']} {query}",
+                    f"{state['topic']} drone",
+                    f"{state['topic']} cinematic",
+                    f"{state['topic']} ocean" if "antarctica" in state['topic'].lower() else f"{state['topic']} landscape",
+                    "cinematic drone flyover",
+                    "dramatic weather timelapse",
+                    "cinematic storm landscape"
+                ]
 
-                # Try 3: General topic query
-                if not acquired:
-                    acquired = fetcher.harvest_visual_for_scene(state["topic"], img_path)
+                for q_try in candidate_video_queries:
+                    if not q_try:
+                        continue
+                    clean_q = q_try.strip()
+                    try:
+                        pexels_items = material.search_videos_pexels(
+                            search_term=clean_q,
+                            minimum_duration=3,
+                            video_aspect=aspect
+                        )
+                        for item in pexels_items:
+                            if item.url not in used_video_urls:
+                                dl_path = material.save_video(item.url, save_dir=task_dir)
+                                if dl_path and os.path.exists(dl_path) and os.path.getsize(dl_path) > 10000:
+                                    used_video_urls.add(item.url)
+                                    acquired_video = dl_path
+                                    print(f"  ✓ Scene {i+1}/{needed_clips}: Acquired Real Motion Video for '{clean_q}' ({item.duration}s)")
+                                    break
+                        if acquired_video:
+                            break
+                    except Exception as p_err:
+                        logger.debug(f"Pexels motion video search failed for '{clean_q}': {p_err}")
 
-                # Render dynamic Ken Burns video clip from acquired image via NVENC
-                if acquired and os.path.exists(img_path):
+                if acquired_video:
+                    cinematic_clips.append(acquired_video)
+                    continue
+
+                # Priority 2: ComfyUI SDXL or Archival Image with NVENC Ken Burns Motion (Fallback ONLY)
+                print(f"  ℹ Motion video unavailable for '{query}', falling back to high-res still with NVENC Ken Burns...")
+                acquired_img = False
+                if comfy.is_alive():
+                    acquired_img = comfy.generate_scene_image(query, img_path)
+                if not acquired_img:
+                    acquired_img = fetcher.harvest_visual_for_scene(query, img_path, fallback_query=fallback)
+                if not acquired_img:
+                    acquired_img = fetcher.harvest_visual_for_scene(state["topic"], img_path)
+
+                if acquired_img and os.path.exists(img_path):
                     image_to_cinematic_clip(
                         image_path=img_path,
                         output_clip_path=clip_path,
@@ -292,9 +375,9 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
                         fps=30
                     )
                     cinematic_clips.append(clip_path)
-                    print(f"  ✓ Scene {i+1}/{needed_clips}: Animated '{query}' via NVENC Ken Burns")
+                    print(f"  ✓ Scene {i+1}/{needed_clips}: Animated still '{query}' via NVENC Ken Burns")
                 else:
-                    logger.warning(f"Failed to acquire image for scene {i+1}")
+                    logger.warning(f"Failed to acquire visual for scene {i+1}")
 
             if not cinematic_clips:
                 raise RuntimeError("Failed to acquire authentic visual footage.")
@@ -316,6 +399,7 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
             
             visual_cfg = profile.get("visual", {})
             aspect = VideoAspect(visual_cfg.get("aspect_ratio", "9:16"))
+            aspect = VideoAspect(visual_cfg.get("aspect_ratio", "9:16"))
             
             # Step A: Combine clips to match duration
             video.combine_videos(
@@ -335,7 +419,7 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
             params = VideoParams(
                 video_subject=state.get("topic", "Short Video"),
                 video_aspect=aspect,
-                font_name="BeVietnamPro-Bold.ttf",
+                font_name="Montserrat-Black.ttf",
                 font_size=subtitle_cfg.get("font_size", 52),
                 text_fore_color=subtitle_cfg.get("color", "#FFFFFF"),
                 text_background_color=subtitle_cfg.get("text_background_color", "#000000"),
@@ -376,12 +460,30 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
             dest_mp4 = out_dir / f"{task_id}.mp4"
             shutil.copy2(state["final_video"], dest_mp4)
 
+            # Step 6B: Render High-CTR Viral Thumbnail via ComfyUI SDXL & Bold Typography
+            thumb_path = out_dir / "thumbnail.jpg"
+            try:
+                from core.thumbnail_generator import render_thumbnail_image
+                print(f"  🎨 Generating High-CTR Thumbnail via ComfyUI SDXL...")
+                render_thumbnail_image(
+                    concept={
+                        "thumbnail_text": state.get("thumbnail_text", "THEY HID THIS"),
+                        "thumbnail_prompt": state.get("thumbnail_prompt", f"dramatic cinematic shot of {state['topic']}")
+                    },
+                    output_path=str(thumb_path),
+                    font_path="resource/fonts/Montserrat-Black.ttf"
+                )
+            except Exception as t_err:
+                logger.warning(f"Thumbnail generation error: {t_err}")
+
             # Build rich syndication metadata
             metadata = {
                 "task_id": task_id,
                 "niche": niche_slug,
+                "title": state.get("title", f"The Secret of {state['topic']}"),
                 "topic": state["topic"],
                 "script": state["script"],
+                "thumbnail_file": str(thumb_path.resolve()) if thumb_path.exists() else "",
                 "duration_seconds": state["audio_duration"],
                 "file_path": str(dest_mp4.resolve()),
                 "file_size_mb": round(dest_mp4.stat().st_size / (1024 * 1024), 2),
@@ -401,10 +503,12 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
             print("\n============================================================")
             print(f" 🎬 VIDEO GENERATION COMPLETE [{niche_slug.upper()}]")
             print("============================================================")
+            print(f"  • Title:     {metadata['title']}")
             print(f"  • Subject:   {metadata['topic']}")
             print(f"  • Duration:  {metadata['duration_seconds']}s")
             print(f"  • Size:      {metadata['file_size_mb']} MB")
-            print(f"  • Output:    {dest_mp4}")
+            print(f"  • Video:     {dest_mp4}")
+            print(f"  • Thumbnail: {metadata['thumbnail_file']}")
             print(f"  • Metadata:  {meta_path}")
             print("============================================================\n")
 

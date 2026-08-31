@@ -46,15 +46,16 @@ transition_mode = "fade"
 concat_mode = "sequential"
 
 [subtitle]
+font_name = "Montserrat-Black.ttf"
 enabled = true
 position = "custom"
 custom_position = 70.0  # 70% down the screen, safe from TikTok/Shorts UI overlays
-font_size = 52
-stroke_width = 2
+font_size = 56
+stroke_width = 5
 color = "#FFFFFF"
 highlight_color = "#FFD700"  # Gold accent
-text_background_color = "#000000"  # CapCut/TikTok dark pill background
-rounded_subtitle_background = true
+text_background_color = ""  # CapCut/TikTok dark pill background
+rounded_subtitle_background = false
 
 [audio]
 bgm_type = "random"

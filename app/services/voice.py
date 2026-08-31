@@ -2127,13 +2127,17 @@ def create_subtitle(sub_maker: SubMaker, text: str, subtitle_file: str):
                 sub_maker, script_lines
             )
 
-        if len(sub_items) != len(script_lines):
-            logger.warning(
-                f"failed, sub_items len: {len(sub_items)}, script_lines len: {len(script_lines)}"
-            )
+        if len(sub_items) == len(script_lines) and sub_items:
+            _write_subtitle_items(sub_items, subtitle_file)
+        elif hasattr(sub_maker, "get_srt") and sub_maker.get_srt().strip():
+            logger.info("Using raw sub_maker SRT as resilient fallback for subtitle alignment.")
+            with open(subtitle_file, "w", encoding="utf-8") as f:
+                f.write(sub_maker.get_srt())
+        elif sub_items:
+            _write_subtitle_items(sub_items, subtitle_file)
+        else:
+            logger.warning(f"failed, sub_items len: {len(sub_items)}, script_lines len: {len(script_lines)}")
             return
-
-        _write_subtitle_items(sub_items, subtitle_file)
     except Exception as e:
         logger.error(f"failed, error: {str(e)}")
 

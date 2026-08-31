@@ -1,11 +1,18 @@
 import math
 import os
 import random
+import socket
 import threading
 import time
 from pathlib import Path
 from typing import Any, Callable, List
 from urllib.parse import quote_plus, urlencode, urlsplit, urlunsplit
+
+# Force IPv4 resolution to prevent SSLError / connection timeouts on hosts with unreachable IPv6
+_orig_getaddrinfo = socket.getaddrinfo
+def _getaddrinfo_ipv4(host, port, family=0, type=0, proto=0, flags=0):
+    return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+socket.getaddrinfo = _getaddrinfo_ipv4
 
 import requests
 from loguru import logger
