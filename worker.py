@@ -356,40 +356,31 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
         # STAGE 4: Authentic Visual Harvesting & NVENC Ken Burns Motion
         # -------------------------------------------------------------
         if state["stage"] in {"subtitle_generated", "materials_sourcing"}:
-            print(f"\n[4/5] Harvesting authentic visual evidence & rendering Ken Burns camera motion...")
+            print(f"\n[4/5] Directing cinematic storyboard & harvesting authentic visuals...")
             visual_cfg = profile.get("visual", {})
             aspect = VideoAspect(visual_cfg.get("aspect_ratio", "9:16"))
-            clip_dur = float(visual_cfg.get("clip_duration", 3.2))
+            clip_dur = float(visual_cfg.get("clip_duration", 3.0))
             audio_duration = float(state["audio_duration"])
             needed_clips = max(1, math.ceil(audio_duration / clip_dur))
             
+            from core.director import MovieDirector
+            director = MovieDirector(profile)
+            shots = director.plan_shotlist(state["script"], state["topic"], needed_clips)
+
             fetcher = VisualFetcher()
             comfy = ComfyClient()
             cinematic_clips = []
             used_video_urls = set()
-            
-            beats = state.get("visual_beats", [])
-            if not beats:
-                beats = [{"query": state["topic"], "fallback": state["topic"]}]
 
-            for i in range(needed_clips):
-                beat = beats[i % len(beats)]
-                query = beat.get("query") if isinstance(beat, dict) else str(beat)
-                fallback = beat.get("fallback", state["topic"]) if isinstance(beat, dict) else state["topic"]
-                
+            for i, shot in enumerate(shots):
                 img_path = os.path.join(task_dir, f"scene_evidence_{i+1}.jpg")
                 clip_path = os.path.join(task_dir, f"scene_motion_{i+1}.mp4")
-                
-                acquired_video = None
-                beat_type = beat.get("type", "stock") if isinstance(beat, dict) else "stock"
-                beat_neg = beat.get("negative_terms", []) if isinstance(beat, dict) else []
-                profile_neg = visual_cfg.get("negative_keywords", [])
-                combined_neg = list(set(beat_neg + profile_neg))
+                acquired_clip = None
 
-                # Route A: Unfilmable Beats -> Direct ComfyUI SDXL Generation + Ken Burns Motion
-                if beat_type == "generate" and comfy.ensure_running():
-                    print(f"  🎨 Scene {i+1}/{needed_clips}: Generating unfilmable scene '{query[:45]}...' via ComfyUI SDXL...")
-                    if comfy.generate_scene_image(query, img_path):
+                # PATH 1: Director designated as AI_GENERATIVE (unfilmable/microscopic/subterranean)
+                if shot.capture_method == "AI_GENERATIVE" and comfy.ensure_running():
+                    print(f"  🎬 Director Shot {i+1}/{needed_clips} [AI_GENERATIVE]: Rendering '{shot.sdxl_prompt[:50]}...' via ComfyUI SDXL")
+                    if comfy.generate_scene_image(shot.sdxl_prompt, img_path):
                         image_to_cinematic_clip(
                             image_path=img_path,
                             output_clip_path=clip_path,
@@ -398,69 +389,69 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
                             fps=30
                         )
                         if os.path.exists(clip_path):
-                            cinematic_clips.append(clip_path)
-                            print(f"  ✓ Scene {i+1}/{needed_clips}: Animated SDXL scene via NVENC Ken Burns")
+                            acquired_clip = clip_path
+                            print(f"  ✓ Scene {i+1}/{needed_clips}: Animated custom SDXL scene via NVENC Ken Burns")
+
+                # PATH 2: Director designated as STOCK_MOTION (filmable world footage)
+                if not acquired_clip:
+                    candidate_queries = [
+                        shot.search_query,
+                        shot.fallback_query,
+                        f"{state['topic']} {shot.search_query}" if state['topic'].lower() not in shot.search_query.lower() else shot.search_query,
+                        f"{state['topic']} drone",
+                        f"{state['topic']} documentary"
+                    ]
+
+                    for clean_q in candidate_queries:
+                        if not clean_q:
                             continue
+                        try:
+                            pexels_items = material.search_videos_pexels(
+                                search_term=clean_q,
+                                minimum_duration=3,
+                                video_aspect=aspect,
+                                negative_keywords=shot.avoid_concepts
+                            )
+                            for item in pexels_items:
+                                if item.url not in used_video_urls:
+                                    approved, reason = director.judge_stock_clip(shot, item.source_info)
+                                    if not approved:
+                                        logger.debug(f"[Director Dailies] {reason}")
+                                        continue
 
-                # Route B: Real Motion Video (Pexels) with Dynamic Negative Filtering
-                candidate_video_queries = [
-                    query,
-                    f"{state['topic']} {query}" if state['topic'].lower() not in query.lower() else query,
-                    fallback,
-                    f"{state['topic']} {fallback}" if state['topic'].lower() not in fallback.lower() else fallback,
-                    f"{state['topic']} drone",
-                    f"{state['topic']} cinematic",
-                    f"{state['topic']} documentary"
-                ]
+                                    dl_path = material.save_video(item.url, save_dir=task_dir)
+                                    if dl_path and os.path.exists(dl_path) and os.path.getsize(dl_path) > 10000:
+                                        used_video_urls.add(item.url)
+                                        acquired_clip = dl_path
+                                        print(f"  ✓ Scene {i+1}/{needed_clips} [STOCK]: Director Approved Real Video for '{clean_q}' ({item.duration}s)")
+                                        break
+                            if acquired_clip:
+                                break
+                        except Exception as p_err:
+                            logger.debug(f"Stock video search failed for '{clean_q}': {p_err}")
 
-                for q_try in candidate_video_queries:
-                    if not q_try:
-                        continue
-                    clean_q = q_try.strip()
-                    try:
-                        pexels_items = material.search_videos_pexels(
-                            search_term=clean_q,
-                            minimum_duration=3,
-                            video_aspect=aspect,
-                            negative_keywords=combined_neg
+                # PATH 3: Director Fallback: If stock was rejected or unavailable, ComfyUI renders the scene!
+                if not acquired_clip:
+                    print(f"  🎬 Director Shot {i+1}/{needed_clips}: Stock misfired or unavailable. ComfyUI SDXL generating custom visual...")
+                    acquired_img = False
+                    if comfy.ensure_running():
+                        acquired_img = comfy.generate_scene_image(shot.sdxl_prompt, img_path)
+                    if not acquired_img:
+                        acquired_img = fetcher.harvest_visual_for_scene(shot.search_query, img_path, fallback_query=shot.fallback_query)
+
+                    if acquired_img and os.path.exists(img_path):
+                        image_to_cinematic_clip(
+                            image_path=img_path,
+                            output_clip_path=clip_path,
+                            duration=clip_dur,
+                            preset_index=i,
+                            fps=30
                         )
-                        for item in pexels_items:
-                            if item.url not in used_video_urls:
-                                dl_path = material.save_video(item.url, save_dir=task_dir)
-                                if dl_path and os.path.exists(dl_path) and os.path.getsize(dl_path) > 10000:
-                                    used_video_urls.add(item.url)
-                                    acquired_video = dl_path
-                                    print(f"  ✓ Scene {i+1}/{needed_clips}: Acquired Real Motion Video for '{clean_q}' ({item.duration}s)")
-                                    break
-                        if acquired_video:
-                            break
-                    except Exception as p_err:
-                        logger.debug(f"Pexels motion video search failed for '{clean_q}': {p_err}")
+                        acquired_clip = clip_path
+                        print(f"  ✓ Scene {i+1}/{needed_clips}: Animated fallback scene via NVENC Ken Burns")
 
-                if acquired_video:
-                    cinematic_clips.append(acquired_video)
-                    continue
-
-                # Fallback: ComfyUI SDXL or Archival Image with NVENC Ken Burns Motion
-                print(f"  ℹ Motion video unavailable for '{query}', falling back to high-res still with NVENC Ken Burns...")
-                acquired_img = False
-                if comfy.is_alive():
-                    acquired_img = comfy.generate_scene_image(query, img_path)
-                if not acquired_img:
-                    acquired_img = fetcher.harvest_visual_for_scene(query, img_path, fallback_query=fallback)
-                if not acquired_img:
-                    acquired_img = fetcher.harvest_visual_for_scene(state["topic"], img_path)
-
-                if acquired_img and os.path.exists(img_path):
-                    image_to_cinematic_clip(
-                        image_path=img_path,
-                        output_clip_path=clip_path,
-                        duration=clip_dur,
-                        preset_index=i,
-                        fps=30
-                    )
-                    cinematic_clips.append(clip_path)
-                    print(f"  ✓ Scene {i+1}/{needed_clips}: Animated still '{query[:40]}' via NVENC Ken Burns")
+                if acquired_clip:
+                    cinematic_clips.append(acquired_clip)
                 else:
                     logger.warning(f"Failed to acquire visual for scene {i+1}")
 
