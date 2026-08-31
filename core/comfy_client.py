@@ -28,6 +28,7 @@ NEGATIVE_PROMPT = (
 class ComfyClient:
     def __init__(self, base_url: str = COMFY_URL):
         self.base_url = base_url
+        self.session = requests.Session()
 
     def is_alive(self) -> bool:
         """Check if ComfyUI server is responsive."""

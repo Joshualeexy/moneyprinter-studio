@@ -26,6 +26,7 @@ import shutil
 import subprocess
 import sys
 import time
+import re
 from pathlib import Path
 from uuid import uuid4
 
@@ -265,6 +266,9 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
             print(f"\n[2/5] Synthesizing voiceover narration...")
             audio_file = os.path.join(task_dir, "audio.mp3")
             voice_config = profile.get("voice", {})
+            voice_name = voice_config.get("voice_name", "en-US-ChristopherNeural")
+            voice_rate = float(voice_config.get("voice_rate", 1.0))
+
             # Ensure 100% clean script before voice synthesis (zero bracketed metrics or word counts)
             clean_script = re.sub(r'\[.*?\]|\(.*?\)', '', state["script"]).strip()
             clean_script = re.sub(r'(?i)\bword\s*count\s*:\s*\d+\b', '', clean_script).strip()
