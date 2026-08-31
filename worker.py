@@ -88,14 +88,19 @@ def generate_niche_script(profile: dict, topic: str, research_context: str = "")
 def generate_visual_terms(script: str, topic: str, profile: dict) -> list[dict]:
     """Generate high-precision search queries for each visual beat in the narrative."""
     prompt = f"""Given this documentary video script about '{topic}', break it down into 4 to 6 sequential visual scene beats.
-For each beat, specify a search term for an authentic historical photo, artifact, or archival document to display.
+For each beat, specify a concise 2 to 3 word search term for an authentic photograph, artifact, or landscape to display.
+
+IMPORTANT SEARCH RULES:
+- Queries must be SHORT (2 to 3 words max). Search engines fail on long sentences.
+- Focus on tangible, photographable things (e.g. "{topic} glacier", "{topic} ice core", "{topic} fossil leaf", "{topic} iceberg").
+- Never include words like "discovery", "evidence", "proves", "dating back".
 
 Script:
 "{script}"
 
 Return a JSON array of 4 to 6 objects where each object has:
-- "query": a specific search term for an authentic archival document, artifact, photo, or relief (e.g. "Voynich manuscript astronomical chart folio", "ancient cipher codebreaking desk")
-- "fallback": a simpler fallback search term (e.g. "medieval codex parchment")
+- "query": 2 to 3 word search term (e.g. "{topic} glacier", "{topic} fossil plant")
+- "fallback": 2 word fallback term (e.g. "{topic} ice")
 
 Return ONLY the raw JSON array. No explanations, no markdown formatting."""
 
@@ -333,8 +338,10 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
                 font_name="BeVietnamPro-Bold.ttf",
                 font_size=subtitle_cfg.get("font_size", 52),
                 text_fore_color=subtitle_cfg.get("color", "#FFFFFF"),
+                text_background_color=subtitle_cfg.get("text_background_color", "#000000"),
+                rounded_subtitle_background=subtitle_cfg.get("rounded_subtitle_background", True),
                 stroke_color="#000000",
-                stroke_width=subtitle_cfg.get("stroke_width", 3),
+                stroke_width=subtitle_cfg.get("stroke_width", 2),
                 subtitle_position=subtitle_cfg.get("position", "custom"),
                 custom_position=float(subtitle_cfg.get("custom_position", 70.0)),
                 bgm_type=profile.get("audio", {}).get("bgm_type", "random"),

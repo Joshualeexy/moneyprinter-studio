@@ -50,9 +50,11 @@ enabled = true
 position = "custom"
 custom_position = 70.0  # 70% down the screen, safe from TikTok/Shorts UI overlays
 font_size = 52
-stroke_width = 3
+stroke_width = 2
 color = "#FFFFFF"
 highlight_color = "#FFD700"  # Gold accent
+text_background_color = "#000000"  # CapCut/TikTok dark pill background
+rounded_subtitle_background = true
 
 [audio]
 bgm_type = "random"
