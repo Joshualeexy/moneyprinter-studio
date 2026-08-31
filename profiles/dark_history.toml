@@ -1,0 +1,57 @@
+# ==============================================================================
+# Niche Profile: Dark History & Ancient Mysteries
+# ==============================================================================
+
+[niche]
+name = "Dark History"
+slug = "dark_history"
+description = "Untold historical paradoxes, ancient mysteries, and psychological warfare"
+language = "en"
+
+[series]
+enabled = true
+current_arc = "Forbidden Inventions History Forgot"
+current_episode = 1
+total_episodes = 3
+
+[persona]
+tone = "suspenseful, authoritative documentary, investigative"
+hook_style = "paradox_or_shock"
+banned_phrases = [
+    "in today's video",
+    "dive into",
+    "let's explore",
+    "welcome back",
+    "hit that subscribe button",
+    "have you ever wondered",
+    "in a world where"
+]
+
+[voice]
+# Provider: edge | elevenlabs
+provider = "edge"
+voice_name = "en-US-ChristopherNeural"  # Deep, documentary baritone
+voice_rate = 1.0
+voice_volume = 1.0
+
+[visual]
+aspect_ratio = "9:16"  # 9:16 vertical shorts, 16:9 widescreen
+source = "pexels"      # pexels | pixabay | local
+clip_duration = 3.0    # 2.5 - 3.5s rapid pacing
+transition_mode = "fade"
+concat_mode = "sequential"
+
+[subtitle]
+enabled = true
+position = "custom"
+custom_position = 70.0  # 70% down the screen, safe from TikTok/Shorts UI overlays
+font_size = 52
+stroke_width = 3
+color = "#FFFFFF"
+highlight_color = "#FFD700"  # Gold accent
+
+[audio]
+bgm_type = "random"
+bgm_volume = 0.18
+bgm_ducking = true
+bgm_ducking_volume = 0.08
