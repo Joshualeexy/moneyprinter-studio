@@ -45,17 +45,54 @@ def run_series(profile_name: str, count: int = 5):
 
     completed_episodes = []
 
+    # Scan existing output archive to detect already finished episodes
+    niche_out_dir = Path("output") / niche_slug
+    existing_topics = {}
+    if niche_out_dir.exists():
+        for d in niche_out_dir.iterdir():
+            if d.is_dir():
+                meta_file = d / "metadata.json"
+                if meta_file.exists():
+                    try:
+                        with open(meta_file, "r", encoding="utf-8") as mf:
+                            m_data = json.load(mf)
+                            t_name = m_data.get("topic", "").strip()
+                            v_path = m_data.get("file_path", "")
+                            if t_name and Path(v_path).exists() and Path(v_path).stat().st_size > 1024 * 1024:
+                                existing_topics[t_name.lower()] = m_data
+                    except Exception:
+                        pass
+
     for idx, episode_topic in enumerate(episodes, 1):
         print("\n" + "#" * 65)
         print(f"  EPISODE {idx}/{count}: {episode_topic}")
         print("#" * 65)
+
+        # Smart Resumption: Skip already rendered episodes
+        if episode_topic.lower() in existing_topics:
+            prev_meta = existing_topics[episode_topic.lower()]
+            print(f"  ⚡ Episode {idx} already rendered and archived: '{prev_meta.get('title', episode_topic)}'")
+            print(f"     Video: {prev_meta.get('file_path')}")
+            print(f"     Skipping directly to next episode in arc!")
+            completed_episodes.append({
+                "episode": idx,
+                "topic": episode_topic,
+                "title": prev_meta.get("title", episode_topic),
+                "duration": prev_meta.get("duration_seconds", 0),
+                "size_mb": prev_meta.get("file_size_mb", 0),
+                "video_path": prev_meta.get("file_path", ""),
+                "thumbnail_path": prev_meta.get("thumbnail_file", ""),
+                "elapsed_seconds": 0
+            })
+            continue
 
         start_time = time.time()
         try:
             run_worker_pipeline(
                 profile_path=profile_name,
                 topic_override=episode_topic,
-                clear_state=True
+                clear_state=True,
+                episode_num=idx
             )
 
             # Find the most recently created folder in output/{niche_slug}

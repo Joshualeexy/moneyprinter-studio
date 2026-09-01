@@ -109,40 +109,90 @@ def render_thumbnail_image(
 
         composite = Image.alpha_composite(base_img, gradient)
 
-        # Draw Bold High-Impact Hook Text
-        text = concept.get("thumbnail_text", "THEY HID THIS").upper()
+        # Draw Bold High-Impact Hook Text with Dynamic Multi-Line Auto-Wrapping & Auto-Scaling
+        raw_text = concept.get("thumbnail_text", "THEY HID THIS").strip().upper()
         draw = ImageDraw.Draw(composite)
 
+        max_canvas_w = 880  # Safe inner margin on 1080px canvas
+        font_size = 110
+        words = raw_text.split()
+        if not words:
+            words = ["THEY", "HID", "THIS"]
+
+        # Helper to compute wrapped lines
+        def wrap_lines(words_list, f_obj):
+            lines = []
+            curr = []
+            for w in words_list:
+                cand = " ".join(curr + [w])
+                bb = draw.textbbox((0, 0), cand, font=f_obj, stroke_width=8)
+                if (bb[2] - bb[0]) <= max_canvas_w:
+                    curr.append(w)
+                else:
+                    if curr:
+                        lines.append(" ".join(curr))
+                        curr = [w]
+                    else:
+                        lines.append(w)
+                        curr = []
+            if curr:
+                lines.append(" ".join(curr))
+            return lines
+
         try:
-            font = ImageFont.truetype(font_path, 110)
+            font = ImageFont.truetype(font_path, font_size)
         except Exception:
             font = ImageFont.load_default()
 
-        # Measure text
-        bbox = draw.textbbox((0, 0), text, font=font, stroke_width=12)
-        tw = bbox[2] - bbox[0]
-        th = bbox[3] - bbox[1]
+        lines = wrap_lines(words, font)
 
-        # Center horizontally, position at 38% down the frame
-        tx = (1080 - tw) // 2
-        ty = int(1920 * 0.38 - th // 2)
+        # Auto-scale font down until lines fit comfortably within max 3 lines and max_canvas_w
+        while (len(lines) > 3 or any((draw.textbbox((0, 0), l, font=font, stroke_width=8)[2] - draw.textbbox((0, 0), l, font=font, stroke_width=8)[0]) > max_canvas_w for l in lines)) and font_size > 52:
+            font_size -= 6
+            try:
+                font = ImageFont.truetype(font_path, font_size)
+            except Exception:
+                font = ImageFont.load_default()
+            lines = wrap_lines(words, font)
 
-        # Draw Black Background Badge/Pill behind text for maximum pop
-        pad_x = 40
-        pad_y = 25
-        card_box = [tx - pad_x, ty - pad_y, tx + tw + pad_x, ty + th + pad_y]
-        draw.rounded_rectangle(card_box, radius=18, fill=(0, 0, 0, 230))
-        draw.rounded_rectangle(card_box, radius=18, outline=(255, 215, 0, 255), width=5)
+        # Compute line heights and total block height
+        line_metrics = []
+        total_text_h = 0
+        line_gap = int(font_size * 0.18)
 
-        # Draw Text: Bright Yellow with heavy black shadow/stroke
-        draw.text(
-            (tx - bbox[0], ty - bbox[1]),
-            text,
-            font=font,
-            fill=(255, 230, 0, 255),
-            stroke_width=6,
-            stroke_fill=(0, 0, 0, 255)
-        )
+        for l in lines:
+            bb = draw.textbbox((0, 0), l, font=font, stroke_width=8)
+            lw = bb[2] - bb[0]
+            lh = bb[3] - bb[1]
+            line_metrics.append((l, lw, lh, bb))
+            total_text_h += lh
+
+        total_text_h += line_gap * max(0, len(lines) - 1)
+
+        # Center vertically around 38% height
+        start_y = int(1920 * 0.38 - total_text_h // 2)
+        curr_y = start_y
+
+        for line_text, lw, lh, bb in line_metrics:
+            lx = (1080 - lw) // 2
+            pad_x = int(font_size * 0.35)
+            pad_y = int(font_size * 0.20)
+            pill_box = [lx - pad_x, curr_y - pad_y, lx + lw + pad_x, curr_y + lh + pad_y]
+
+            # Rounded dark pill with gold stroke
+            draw.rounded_rectangle(pill_box, radius=16, fill=(0, 0, 0, 235))
+            draw.rounded_rectangle(pill_box, radius=16, outline=(255, 215, 0, 255), width=4)
+
+            # High-impact yellow text with black stroke
+            draw.text(
+                (lx - bb[0], curr_y - bb[1]),
+                line_text,
+                font=font,
+                fill=(255, 230, 0, 255),
+                stroke_width=max(4, int(font_size * 0.06)),
+                stroke_fill=(0, 0, 0, 255)
+            )
+            curr_y += lh + line_gap
 
         # Save final thumbnail
         final_thumb = composite.convert("RGB")

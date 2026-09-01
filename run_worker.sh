@@ -71,14 +71,28 @@ case "$1" in
         rm -f "pipeline_state_${PROFILE}.json"
         echo -e "${GREEN}Done.${NC}"
         ;;
+    series)
+        show_banner
+        shift
+        PROFILE="${1:-true_crime}"
+        COUNT="${2:-5}"
+        echo -e "${GREEN}[Series] Launching ${COUNT}-episode series for niche: ${PROFILE}${NC}"
+        "$VENV_PYTHON" run_series.py --profile "$PROFILE" --count "$COUNT"
+        ;;
+    infinite)
+        show_banner
+        echo -e "${GREEN}[Autonomous Daemon] Launching Infinite Multi-Niche Engine across all niches...${NC}"
+        "$VENV_PYTHON" run_infinite_generator.py
+        ;;
     *)
         echo -e "${GREEN}Autonomous Video Worker CLI${NC}"
         echo ""
         echo "Usage: ./run_worker.sh <command>"
         echo ""
         echo "Commands:"
-        echo "  start [profile]        Start pipeline for profile (default: dark_history)"
-        echo "  start [profile] --clear-state    Clear state and start fresh video"
+        echo "  start [profile]        Start single pipeline run for profile (default: dark_history)"
+        echo "  series [profile] [N]   Launch multi-episode series (default: true_crime, 5 episodes)
+  infinite               Run continuous autonomous generator across all niches overnight"
         echo "  status                 View active checkpoints and generated videos"
         echo "  profiles               List available niche profiles"
         echo "  clear [profile]        Manually clear a profile checkpoint"

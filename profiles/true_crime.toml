@@ -1,66 +1,44 @@
-# ==============================================================================
-# Niche Profile: True Crime & Cold Cases
-# ==============================================================================
-
 [niche]
 name = "True Crime & Cold Cases"
 slug = "true_crime"
-description = "Baffling disappearances, chilling cold cases, forensic mysteries, and criminal masterminds"
+description = "Forensic paradoxes, baffling missing persons cases, and unsolvable historical crimes"
 language = "en"
 
 [video_target]
-min_duration = 61.0
-max_duration = 68.0
-min_words = 140
-max_words = 165
+min_duration = 65.0
+max_duration = 75.0
+min_words = 160
+max_words = 185
 
 [series]
 enabled = true
 current_arc = "Vanished Into Thin Air: The Most Baffling Cold Cases"
 current_episode = 1
 total_episodes = 5
-episodes = [
-    "The Yuba County Five Disappearance",
-    "The DB Cooper Skyjacking",
-    "The Somerton Man Tamam Shud Mystery",
-    "The Hinterkaifeck Murders",
-    "The Isdal Woman Cold Case"
-]
+episodes = [ "The Yuba County Five Disappearance", "The DB Cooper Skyjacking", "The Somerton Man Tamam Shud Mystery", "The Hinterkaifeck Murders", "The Isdal Woman Cold Case",]
 
 [llm]
-provider = "ollama"
-model = "qwen3-coder-agent:latest"   # 30.5B: Master Scriptwriter (Deep narrative & forensic tension)
-director_model = "qwen3:8b"          # 8B: Movie Director (Fast storyboarder & zero VRAM strain)
+provider = "deepseek"
+model = "deepseek-chat"
 
 [persona]
-tone = "gripping, forensic, chilling investigative documentary, authoritative"
+tone = "forensic, haunting, cold documentary suspense"
 hook_style = "paradox_or_shock"
-banned_phrases = [
-    "in today's video",
-    "dive into",
-    "let's explore",
-    "welcome back",
-    "hit that subscribe button",
-    "have you ever wondered",
-    "in a world where"
-]
+banned_phrases = [ "in today's video", "dive into", "welcome back", "hit that subscribe button",]
 
 [voice]
 provider = "edge"
-voice_name = "en-US-ChristopherNeural"  # Deep, forensic baritone
-voice_rate = 0.98                      # Deliberate, suspenseful pacing
+voice_name = "en-US-ChristopherNeural"
+voice_rate = 0.98
 voice_volume = 1.0
 
 [visual]
-aspect_ratio = "9:16"  # 9:16 vertical shorts
+aspect_ratio = "9:16"
 source = "pexels"
-clip_duration = 2.8    # 2.8s rapid documentary pacing
+clip_duration = 2.8
 transition_mode = "fade"
 concat_mode = "sequential"
-negative_keywords = [
-    "comedy", "party", "cartoon", "vacation", "resort", "beach", 
-    "dance", "cooking", "fitness", "workout", "wedding", "celebration", "swimming"
-]
+negative_keywords = [ "beach", "party", "comedy", "resort", "swimming", "cartoon",]
 
 [subtitle]
 font_name = "Montserrat-Black.ttf"
@@ -70,12 +48,12 @@ custom_position = 70.0
 font_size = 54
 stroke_width = 4
 color = "#FFFFFF"
-highlight_color = "#FF2A2A"  # Forensic Crimson Red active word highlight!
-text_background_color = ""
-rounded_subtitle_background = false
+highlight_color = "#FF2A2A"
+text_background_color = "#000000"
+rounded_subtitle_background = true
 
 [audio]
 bgm_type = "random"
-bgm_volume = 0.16
+bgm_volume = 0.18
 bgm_ducking = true
-bgm_ducking_volume = 0.06
+bgm_ducking_volume = 0.08

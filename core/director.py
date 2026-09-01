@@ -111,15 +111,23 @@ Return a JSON array of {total_shots} objects. Return ONLY raw valid JSON."""
             if cap_method not in {"STOCK_MOTION", "AI_GENERATIVE"}:
                 cap_method = "STOCK_MOTION"
 
-            # Anchor search query to topic
-            raw_q = re.sub(r'["\']', '', item.get("search_query", f"{topic_clean} cinematic")).strip()
+            # Anchor search query to topic safely with null protection
+            raw_q_val = item.get("search_query")
+            if not raw_q_val or not isinstance(raw_q_val, str):
+                raw_q_val = f"{topic_clean} cinematic"
+            raw_q = re.sub(r'["\']', '', raw_q_val).strip()
+
             q_words = set(raw_q.lower().split())
             if not (topic_words & q_words):
                 search_q = f"{topic_clean} {raw_q}".strip()
             else:
                 search_q = raw_q
 
-            raw_fb = re.sub(r'["\']', '', item.get("fallback_query", topic_clean)).strip()
+            raw_fb_val = item.get("fallback_query")
+            if not raw_fb_val or not isinstance(raw_fb_val, str):
+                raw_fb_val = topic_clean
+            raw_fb = re.sub(r'["\']', '', raw_fb_val).strip()
+
             fb_words = set(raw_fb.lower().split())
             if not (topic_words & fb_words):
                 fallback_q = f"{topic_clean} {raw_fb}".strip()
@@ -133,7 +141,7 @@ Return a JSON array of {total_shots} objects. Return ONLY raw valid JSON."""
             combined_avoid = list(set([str(a).lower().strip() for a in avoid] + self.profile_negatives))
 
             # SDXL prompt
-            raw_sdxl = item.get("sdxl_prompt", "").strip()
+            raw_sdxl = str(item.get("sdxl_prompt") or "").strip()
             if not raw_sdxl or topic_clean.lower() not in raw_sdxl.lower():
                 sdxl_p = f"dramatic cinematic photorealistic shot of {topic_clean}, {raw_sdxl}, volumetric lighting, 8k, national geographic, textless"
             else:

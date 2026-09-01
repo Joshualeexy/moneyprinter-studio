@@ -32,11 +32,82 @@ from uuid import uuid4
 
 from loguru import logger
 
+# Route low-level library debug spam to pipeline_debug.log, keeping stdout clean & informative
+try:
+    logger.remove()
+    logger.add("pipeline_debug.log", rotation="25 MB", retention="5 days", level="DEBUG", encoding="utf-8")
+    logger.add(sys.stderr, level="ERROR", format="<red>[ERROR]</red> {message}")
+except Exception:
+    pass
+
 from app.config import config
 from app.models.schema import VideoAspect, VideoConcatMode, VideoParams
 from app.services import llm, material, subtitle, video, voice
 from app.utils import utils
 from core.checkpoint import CheckpointManager
+def get_sentence_scenes(srt_path: str, audio_duration: float, min_dur: float = 2.5, max_dur: float = 4.8) -> list:
+    """Parses subtitle.srt into frame-accurate, contiguous narrative scenes synchronized to narrator speech pauses."""
+    if not os.path.exists(srt_path):
+        return []
+    with open(srt_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    pattern = r"(\d+)\n(\d{2}:\d{2}:\d{2}[,\.]\d{3}) --> (\d{2}:\d{2}:\d{2}[,\.]\d{3})\n(.*?)(?=\n\n|\n*$)"
+    matches = re.findall(pattern, content, re.DOTALL)
+
+    def to_sec(ts):
+        ts = ts.replace(",", ".")
+        h, m, s = ts.split(":")
+        return int(h)*3600 + int(m)*60 + float(s)
+
+    items = []
+    for m in matches:
+        s_sec = to_sec(m[1])
+        e_sec = to_sec(m[2])
+        text = m[3].replace("\n", " ").strip()
+        items.append({"start": s_sec, "end": e_sec, "text": text})
+
+    if not items:
+        return []
+
+    scenes = []
+    curr = None
+    for item in items:
+        if curr is None:
+            curr = {"start": item["start"], "end": item["end"], "text": item["text"]}
+        else:
+            cand_dur = item["end"] - curr["start"]
+            if cand_dur <= max_dur and (curr["end"] - curr["start"] < min_dur or not curr["text"].endswith((".", "!", "?"))):
+                curr["end"] = item["end"]
+                curr["text"] += " " + item["text"]
+            else:
+                scenes.append(curr)
+                curr = {"start": item["start"], "end": item["end"], "text": item["text"]}
+    if curr:
+        scenes.append(curr)
+
+    # Adjust contiguous boundaries to cover 0.0 -> audio_duration with zero micro-gaps
+    for i in range(len(scenes)):
+        if i == 0:
+            scenes[i]["start"] = 0.0
+        else:
+            scenes[i]["start"] = scenes[i-1]["end"]
+
+        if i == len(scenes) - 1:
+            scenes[i]["end"] = max(scenes[i]["start"] + 1.0, float(audio_duration))
+        else:
+            next_start = items[min(len(items)-1, i+1)]["start"]
+            if next_start > scenes[i]["end"]:
+                scenes[i]["end"] = next_start
+        scenes[i]["duration"] = round(scenes[i]["end"] - scenes[i]["start"], 3)
+
+    return scenes
+
+
+def _slugify(text: str) -> str:
+    clean = re.sub(r"[^a-zA-Z0-9\s_-]", "", text).strip()
+    return re.sub(r"[\s_-]+", "_", clean).lower()
+
 from core.comfy_client import ComfyClient
 from core.motion import image_to_cinematic_clip
 from core.profile_loader import load_profile
@@ -51,23 +122,36 @@ def build_system_script_prompt(profile: dict, topic: str, research_context: str 
     banned_str = ", ".join(f'"{p}"' for p in banned) if banned else "None"
 
     target_cfg = profile.get("video_target", {})
-    min_w = target_cfg.get("min_words", 140)
-    max_w = target_cfg.get("max_words", 165)
+    min_w = target_cfg.get("min_words", 160)
+    max_w = target_cfg.get("max_words", 185)
 
-    context_block = f"\n## Verified Historical Research & Facts:\n{research_context}\n" if research_context else ""
+    context_block = f"\n## Verified Archival Evidence & Intel:\n{research_context}\n" if research_context else ""
 
-    return f"""# Role: Elite Short-Form Storyteller & Investigative Documentarian
+    return f"""# Role: Master Investigative Documentarian & Viral Short-Form Screenwriter
 # Niche: {profile['niche']['name']} ({profile['niche']['description']})
 # Subject: {topic}
 {context_block}
-## Guidelines:
-1. Tone: {tone}.
-2. Pacing: Punchy, spoken-word cadence. Short sentences designed for maximum viewer retention.
-3. Hook (First 3 seconds): Must start with an impossible fact, cognitive paradox, or high-stakes reveal grounded in the evidence.
-4. Total Length: Between {min_w} and {max_w} words (ensures the spoken voiceover is 61 to 68 seconds, strictly over 1 minute for TikTok Creator Rewards and YouTube Shorts monetization).
-5. Grounding: Mention at least one specific artifact, date, or physical piece of evidence from the research.
-6. Strict Forbidden Phrases: Never use {banned_str}.
-7. Structure: Return ONLY the raw script to be read aloud. No stage directions, no narrator labels, no markdown headers, no quotes, and NEVER include word counts or bracketed notes (e.g. do NOT write "[Word count: 87]").
+
+## 4-Act High-Retention Viral Architecture:
+1. ACT I — THE ANOMALY HOOK (0-8s):
+   - Open with a jarring contradiction, impossible physical evidence, or cognitive dissonance.
+   - Never introduce yourself or say hello. Jump straight into the heart of the mystery.
+
+2. ACT II — THE INVESTIGATION & EVIDENCE (8-35s):
+   - Build narrative momentum with concrete forensic facts: exact dates, classified dossier codenames, physical measurements, or eyewitness testimony.
+   - Use staccato spoken cadence: keep sentences short (6 to 12 words max) with natural breathing pauses.
+
+3. ACT III — THE MIDPOINT ESCALATION (35-52s):
+   - Just when the viewer thinks they understand the story, introduce the fatal paradox: conflicting laboratory data, suppressed archives, or an impossible anomaly that defies explanation.
+
+4. ACT IV — THE UNSETTLING REVELATION & INFINITE LOOP (52-70s):
+   - Deliver a chilling concluding insight that leaves the viewer questioning what they know.
+   - Craft the final sentence so it flows seamlessly into the very first sentence, creating an infinite retention loop on TikTok and YouTube Shorts.
+
+## Absolute Constraints:
+- Target Spoken Length: Strictly between {min_w} and {max_w} words (calibrated for exactly 65 to 75 seconds of narration).
+- Forbidden Clichés: Absolutely NEVER use {banned_str} or phrases like "in this video", "have you ever wondered", "dive into", "let me explain".
+- Spoken Cadence: Write strictly for audio narration. No markdown asterisks, no headers, no quotation marks, no narrator tags, and zero bracketed notes.
 """
 
 
@@ -97,11 +181,34 @@ def generate_niche_script(profile: dict, topic: str, research_context: str = "")
         raise RuntimeError(f"Script generation failed: {response}")
 
     script = response.strip()
-    # Clean any LLM meta-commentary, bracketed word counts, or markdown notes
     script = re.sub(r'\[.*?\]|\(.*?\)', '', script)
     script = re.sub(r'(?i)\bword\s*count\s*:\s*\d+\b', '', script)
     script = re.sub(r'\*\*(?:Narrator|Voiceover|Audio|Host)\s*:\*\*', '', script, flags=re.IGNORECASE)
     script = re.sub(r'(?:Narrator|Voiceover|Audio|Host)\s*:\s*', '', script, flags=re.IGNORECASE)
+
+    target_cfg = profile.get("video_target", {})
+    min_w = target_cfg.get("min_words", 160)
+    max_w = target_cfg.get("max_words", 185)
+    word_count = len(script.split())
+
+    # Mandatory expansion loop: enforce strictly 65-75+ second duration
+    if word_count < min_w:
+        logger.info(f"Draft script is only {word_count} words. Auto-expanding to target {min_w}-{max_w} words for 65s+ duration...")
+        expand_prompt = f"""You are the Master Documentarian. The draft script below is only {word_count} words, which is too short for a 65-75 second documentary.
+Expand this script to strictly between {min_w} and {max_w} words by enriching it with concrete historical evidence, specific dates, forensic details, and intense narrative tension.
+
+Draft Script:
+\"{script}\"
+
+Return ONLY the final expanded script to be read aloud. No labels, no headers, no word counts."""
+        expanded_resp = llm._generate_response(expand_prompt, app_config=app_cfg)
+        if expanded_resp and not expanded_resp.startswith("Error:"):
+            exp_clean = re.sub(r'\[.*?\]|\(.*?\)', '', expanded_resp)
+            exp_clean = re.sub(r'(?i)\bword\s*count\s*:\s*\d+\b', '', exp_clean)
+            exp_clean = re.sub(r'\*\*(?:Narrator|Voiceover|Audio|Host)\s*:\*\*', '', exp_clean, flags=re.IGNORECASE)
+            exp_clean = re.sub(r'(?:Narrator|Voiceover|Audio|Host)\s*:\s*', '', exp_clean, flags=re.IGNORECASE)
+            script = exp_clean.strip()
+
     return script.strip()
 
 
@@ -193,7 +300,7 @@ Return ONLY the raw JSON array. No explanations, no markdown formatting."""
     return anchored_beats if anchored_beats else [{"query": topic_clean, "fallback": topic_clean, "type": "stock", "negative_terms": []}]
 
 
-def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_state: bool = False):
+def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_state: bool = False, episode_num: int = None):
     profile = load_profile(profile_path)
     niche_slug = profile["niche"]["slug"]
     
@@ -217,6 +324,7 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
             "stage": "start",
             "status": "running",
             "topic": topic_override or profile.get("series", {}).get("current_arc") or f"Secrets of {profile['niche']['name']}",
+            "episode_num": episode_num,
             "created_at": time.time(),
         }
         checkpoint.save(state)
@@ -238,6 +346,13 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
                 state["research"] = research_data
 
             # Step 1B: Generate grounded script, viral title, and thumbnail hook
+            # Free ComfyUI models from VRAM before invoking Ollama LLM
+            try:
+                import requests as _req
+                _req.post("http://127.0.0.1:8188/free", json={"unload_models": True, "free_memory": True}, timeout=3)
+            except Exception:
+                pass
+
             script = state.get("script")
             if not script:
                 script = generate_niche_script(profile, state["topic"], research_context=research_data.get("context", ""))
@@ -342,130 +457,41 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
         # STAGE 4: AI Movie Director — Storyboard & Visual Harvesting
         # -------------------------------------------------------------
         if state["stage"] in {"subtitle_generated", "materials_sourcing"}:
-            print(f"\n[4/5] AI Movie Director directing storyboard & harvesting visuals...")
-            visual_cfg = profile.get("visual", {})
-            aspect = VideoAspect(visual_cfg.get("aspect_ratio", "9:16"))
-            clip_dur = float(visual_cfg.get("clip_duration", 3.0))
-            audio_duration = float(state["audio_duration"])
-            needed_clips = max(1, math.ceil(audio_duration / clip_dur))
-
-            # Step 4A: Director plans the shotlist (requires Ollama LLM)
+            print(f"\n[4/5] AI Movie Director directing storyboard & harvesting visuals (ZERO ASSET REUSE)...")
+            from core.cinema_engine import get_sentence_scenes, harvest_unique_timeline
             from core.director import MovieDirector, DirectorShot
             import dataclasses
+
+            audio_duration = float(state["audio_duration"])
+            sentence_scenes = get_sentence_scenes(state["subtitle_path"], audio_duration)
+            needed_clips = len(sentence_scenes) if sentence_scenes else max(18, math.ceil(audio_duration / 2.8))
+            print(f"  🎬 Cinema Director: Planning {needed_clips} unique scenes with frame-accurate speech alignment.")
 
             director = MovieDirector(profile)
             cached_shots = state.get("director_shots")
             if cached_shots and isinstance(cached_shots, list):
                 shots = [DirectorShot(**s) for s in cached_shots]
-                print(f"  ✓ Loaded {len(shots)} Director shots from checkpoint")
             else:
                 shots = director.plan_shotlist(state["script"], state["topic"], needed_clips)
                 state["director_shots"] = [dataclasses.asdict(s) for s in shots]
                 checkpoint.save(state)
 
-                # Offload Ollama after Director finishes — VRAM must be 100% free before ComfyUI renders
+                # Free Ollama memory
                 try:
                     import requests as _req
                     app_cfg = _get_llm_config(profile)
                     m_name = app_cfg.get("ollama_model_name", "qwen3-coder-agent:latest")
                     _req.post("http://127.0.0.1:11434/api/generate", json={"model": m_name, "keep_alive": 0}, timeout=5)
-                    logger.info("[Director] Offloaded Ollama LLM — VRAM is 100% free for ComfyUI.")
                 except Exception:
                     pass
 
-            fetcher = VisualFetcher()
-            comfy = ComfyClient()
-            comfy_available = None  # Cached result of ensure_running()
-            cinematic_clips = []
-            used_video_urls = set()
-
-            for i, shot in enumerate(shots):
-                img_path = os.path.join(task_dir, f"scene_evidence_{i+1}.jpg")
-                clip_path = os.path.join(task_dir, f"scene_motion_{i+1}.mp4")
-                acquired_clip = None
-
-                # PATH 1: Director designated as AI_GENERATIVE (unfilmable/microscopic/subterranean)
-                if shot.capture_method == "AI_GENERATIVE":
-                    if comfy_available is None:
-                        comfy_available = comfy.ensure_running()
-                    if comfy_available:
-                        print(f"  🎬 Director Shot {i+1}/{needed_clips} [AI_GENERATIVE]: Rendering '{shot.sdxl_prompt[:50]}...' via ComfyUI SDXL")
-                        if comfy.generate_scene_image(shot.sdxl_prompt, img_path):
-                            image_to_cinematic_clip(
-                                image_path=img_path,
-                                output_clip_path=clip_path,
-                                duration=clip_dur,
-                                preset_index=i,
-                                fps=30
-                            )
-                            if os.path.exists(clip_path):
-                                acquired_clip = clip_path
-                                print(f"  ✓ Scene {i+1}/{needed_clips}: Animated custom SDXL scene via NVENC Ken Burns")
-
-                # PATH 2: Director designated as STOCK_MOTION (filmable world footage)
-                if not acquired_clip:
-                    candidate_queries = [
-                        shot.search_query,
-                        shot.fallback_query,
-                        f"{state['topic']} {shot.search_query}" if state['topic'].lower() not in shot.search_query.lower() else shot.search_query,
-                        f"{state['topic']} drone",
-                        f"{state['topic']} documentary"
-                    ]
-
-                    for clean_q in candidate_queries:
-                        if not clean_q:
-                            continue
-                        try:
-                            pexels_items = material.search_videos_pexels(
-                                search_term=clean_q,
-                                minimum_duration=3,
-                                video_aspect=aspect,
-                                negative_keywords=shot.avoid_concepts
-                            )
-                            for item in pexels_items:
-                                if item.url not in used_video_urls:
-                                    approved, reason = director.judge_stock_clip(shot, item.source_info)
-                                    if not approved:
-                                        logger.debug(f"[Director Dailies] {reason}")
-                                        continue
-
-                                    dl_path = material.save_video(item.url, save_dir=task_dir)
-                                    if dl_path and os.path.exists(dl_path) and os.path.getsize(dl_path) > 10000:
-                                        used_video_urls.add(item.url)
-                                        acquired_clip = dl_path
-                                        print(f"  ✓ Scene {i+1}/{needed_clips} [STOCK]: Director Approved Real Video for '{clean_q}' ({item.duration}s)")
-                                        break
-                            if acquired_clip:
-                                break
-                        except Exception as p_err:
-                            logger.debug(f"Stock video search failed for '{clean_q}': {p_err}")
-
-                # PATH 3: Director Fallback: If stock was rejected or unavailable, ComfyUI renders the scene!
-                if not acquired_clip:
-                    print(f"  🎬 Director Shot {i+1}/{needed_clips}: Stock misfired or unavailable. ComfyUI SDXL generating custom visual...")
-                    acquired_img = False
-                    if comfy_available is None:
-                        comfy_available = comfy.ensure_running()
-                    if comfy_available:
-                        acquired_img = comfy.generate_scene_image(shot.sdxl_prompt, img_path)
-                    if not acquired_img:
-                        acquired_img = fetcher.harvest_visual_for_scene(shot.search_query, img_path, fallback_query=shot.fallback_query)
-
-                    if acquired_img and os.path.exists(img_path):
-                        image_to_cinematic_clip(
-                            image_path=img_path,
-                            output_clip_path=clip_path,
-                            duration=clip_dur,
-                            preset_index=i,
-                            fps=30
-                        )
-                        acquired_clip = clip_path
-                        print(f"  ✓ Scene {i+1}/{needed_clips}: Animated fallback scene via NVENC Ken Burns")
-
-                if acquired_clip:
-                    cinematic_clips.append(acquired_clip)
-                else:
-                    logger.warning(f"Failed to acquire visual for scene {i+1}")
+            cinematic_clips = harvest_unique_timeline(
+                scenes=sentence_scenes,
+                task_dir=task_dir,
+                topic=state["topic"],
+                profile=profile,
+                director_shots=shots
+            )
 
             if not cinematic_clips:
                 raise RuntimeError("Failed to acquire authentic visual footage.")
@@ -475,7 +501,7 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
                 "stage": "materials_ready"
             })
             checkpoint.save(state)
-            print(f"  ✓ Successfully produced {len(cinematic_clips)} animated visual scene clips.")
+            print(f"  ✓ Successfully produced {len(cinematic_clips)} 100% UNIQUE visual scene clips (ZERO repetition).")
 
         # -------------------------------------------------------------
         # STAGE 5: Hardware-Accelerated NVENC Compositing
@@ -489,17 +515,12 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
             aspect = VideoAspect(visual_cfg.get("aspect_ratio", "9:16"))
             aspect = VideoAspect(visual_cfg.get("aspect_ratio", "9:16"))
             
-            # Step A: Combine clips to match duration
-            video.combine_videos(
-                combined_video_path=combined_video_path,
-                video_paths=state["materials"],
+            # Step A: Hardware concatenate all unique clips via pure FFmpeg NVENC (Zero repetition)
+            from core.cinema_engine import assemble_final_nvenc_video
+            assemble_final_nvenc_video(
+                clip_files=state["materials"],
                 audio_file=state["audio_file"],
-                video_aspect=aspect,
-                video_concat_mode=VideoConcatMode.sequential,
-                video_transition_mode=visual_cfg.get("transition_mode", "fade"),
-                max_clip_duration=int(visual_cfg.get("clip_duration", 3)),
-                threads=4,
-                clip_speed=1.0,
+                output_file=combined_video_path
             )
 
             # Step B: Burn subtitles and mix audio
@@ -542,10 +563,17 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
         # STAGE 6: Archive & Metadata Assembly
         # -------------------------------------------------------------
         if state["stage"] == "video_rendered":
-            out_dir = Path("output") / niche_slug / task_id
+            ep_num = state.get("episode_num")
+            clean_slug = _slugify(state["topic"])[:45]
+            if ep_num is not None:
+                folder_name = f"{int(ep_num):02d}_{clean_slug}"
+            else:
+                folder_name = f"{time.strftime('%Y%m%d_%H%M')}_{clean_slug}"
+
+            out_dir = Path("output") / niche_slug / folder_name
             out_dir.mkdir(parents=True, exist_ok=True)
 
-            dest_mp4 = out_dir / f"{task_id}.mp4"
+            dest_mp4 = out_dir / f"{folder_name}.mp4"
             shutil.copy2(state["final_video"], dest_mp4)
 
             # Step 6B: Render High-CTR Viral Thumbnail via ComfyUI SDXL & Bold Typography
@@ -619,10 +647,12 @@ if __name__ == "__main__":
     parser.add_argument("--profile", default="dark_history", help="Niche profile slug or path")
     parser.add_argument("--topic", default=None, help="Explicit topic override")
     parser.add_argument("--clear-state", action="store_true", help="Clear saved state and start fresh")
+    parser.add_argument("--episode", type=int, default=None, help="Episode number in series (e.g. 1, 2, 3)")
     args = parser.parse_args()
 
     run_worker_pipeline(
         profile_path=args.profile,
         topic_override=args.topic,
-        clear_state=args.clear_state
+        clear_state=args.clear_state,
+        episode_num=args.episode
     )

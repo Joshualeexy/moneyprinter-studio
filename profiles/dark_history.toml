@@ -1,69 +1,56 @@
-# ==============================================================================
-# Niche Profile: Dark History & Ancient Mysteries
-# ==============================================================================
-
 [niche]
 name = "Dark History"
 slug = "dark_history"
-description = "Untold historical paradoxes, ancient mysteries, and psychological warfare"
+description = "Untold historical paradoxes, ancient mysteries, and suppressed technological relics"
 language = "en"
 
 [video_target]
-min_duration = 61.0
-max_duration = 68.0
-min_words = 140
-max_words = 165
+min_duration = 65.0
+max_duration = 75.0
+min_words = 160
+max_words = 185
 
 [series]
 enabled = true
 current_arc = "Forbidden Inventions History Forgot"
 current_episode = 1
-total_episodes = 3
+total_episodes = 5
+episodes = [ "The Baghdad Battery and Ancient Electricity", "Greek Fire: The Byzantines Lost Superweapon", "The Antikythera Mechanism: A 2000 Year Old Computer", "Damascus Steel and Ancient Nanotechnology", "The Roman Flexible Glass That Got Its Inventor Executed",]
 
 [llm]
-provider = "ollama"
-model = "qwen3-coder-agent:latest"   # 30.5B: Master Scriptwriter (Deep narrative & historical research)
-director_model = "qwen3:8b"          # 8B: Movie Director (Lightning-fast shotlist planning & zero VRAM strain)
+provider = "deepseek"
+model = "deepseek-chat"
 
 [persona]
-tone = "suspenseful, authoritative documentary, investigative"
+tone = "suspenseful, authoritative investigative documentary"
 hook_style = "paradox_or_shock"
-banned_phrases = [
-    "in today's video",
-    "dive into",
-    "let's explore",
-    "welcome back",
-    "hit that subscribe button",
-    "have you ever wondered",
-    "in a world where"
-]
+banned_phrases = [ "in today's video", "dive into", "welcome back", "let's explore", "hit that subscribe button",]
 
 [voice]
-# Provider: edge | elevenlabs
 provider = "edge"
-voice_name = "en-US-ChristopherNeural"  # Deep, documentary baritone
+voice_name = "en-US-ChristopherNeural"
 voice_rate = 1.0
 voice_volume = 1.0
 
 [visual]
-aspect_ratio = "9:16"  # 9:16 vertical shorts, 16:9 widescreen
-source = "pexels"      # pexels | pixabay | local
-clip_duration = 3.0    # 2.5 - 3.5s rapid pacing
+aspect_ratio = "9:16"
+source = "pexels"
+clip_duration = 2.8
 transition_mode = "fade"
 concat_mode = "sequential"
-negative_keywords = ["fishing", "fisherman", "fishermen", "scuba", "coral", "reef", "beach", "aquarium", "bikini", "resort", "vacation", "party", "cooking", "workout"]
+negative_keywords = [ "beach", "bikini", "resort", "vacation", "party", "comedy", "cartoon",]
 
 [subtitle]
 font_name = "Montserrat-Black.ttf"
 enabled = true
 position = "custom"
-custom_position = 70.0  # 70% down the screen, safe from TikTok/Shorts UI overlays
-font_size = 56
-stroke_width = 5
+custom_position = 70.0
+font_size = 54
+stroke_width = 4
 color = "#FFFFFF"
-highlight_color = "#FFD700"  # Gold accent
-text_background_color = ""  # CapCut/TikTok dark pill background
-rounded_subtitle_background = false
+highlight_color = "#FFD700"
+text_background_color = "#000000"
+rounded_subtitle_background = true
 
 [audio]
 bgm_type = "random"

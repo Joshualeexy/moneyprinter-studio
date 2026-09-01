@@ -1,47 +1,35 @@
-# ==============================================================================
-# Niche Profile: Tech & Future Automation
-# ==============================================================================
-
 [niche]
-name = "Tech & Future Automation"
+name = "Future Tech"
 slug = "tech"
-description = "Silicon secrets, underground hardware hacks, AI breakthroughs, and forgotten computing history"
+description = "The secret hardware wars, underground infrastructure, and artificial intelligence singularity"
 language = "en"
 
 [video_target]
-min_duration = 61.0
-max_duration = 68.0
-min_words = 140
-max_words = 165
+min_duration = 65.0
+max_duration = 75.0
+min_words = 160
+max_words = 185
 
 [series]
 enabled = true
 current_arc = "The Hidden Chip War Behind Modern AI"
 current_episode = 1
-total_episodes = 3
+total_episodes = 5
+episodes = [ "The Secret CIA Chip Fab Built In 1984", "Quantum Supremacy: Breaking Global Encryption", "The Deep Underground Cables Powering The Internet", "Autonomous Drone Swarms in Modern Warfare", "The Secret Silicon Vault in the Mojave Desert",]
 
 [llm]
-provider = "ollama"
-model = "qwen3-coder-agent:latest"   # 30.5B: Master Scriptwriter (Deep narrative & semiconductor research)
-director_model = "qwen3:8b"          # 8B: Movie Director (Lightning-fast shotlist planning & zero VRAM strain)
+provider = "deepseek"
+model = "deepseek-chat"
 
 [persona]
-tone = "fast-paced, analytical, mind-blowing tech documentary, investigative"
+tone = "high stakes, breathless investigative techno-thriller"
 hook_style = "paradox_or_shock"
-banned_phrases = [
-    "in today's video",
-    "dive into",
-    "let's explore",
-    "welcome back",
-    "hit that subscribe button",
-    "have you ever wondered",
-    "in a world where"
-]
+banned_phrases = [ "in today's video", "dive into", "welcome back", "hit that subscribe button",]
 
 [voice]
 provider = "edge"
-voice_name = "en-US-GuyNeural"
-voice_rate = 1.05
+voice_name = "en-US-ChristopherNeural"
+voice_rate = 1.02
 voice_volume = 1.0
 
 [visual]
@@ -50,22 +38,22 @@ source = "pexels"
 clip_duration = 2.8
 transition_mode = "fade"
 concat_mode = "sequential"
-negative_keywords = ["nature", "wildlife", "cooking", "vacation", "party", "forest", "animals", "beach", "fishing"]
+negative_keywords = [ "nature", "forest", "beach", "food", "party", "cartoon",]
 
 [subtitle]
+font_name = "Montserrat-Black.ttf"
 enabled = true
 position = "custom"
-custom_position = 72.0
-font_name = "Montserrat-Black.ttf"
+custom_position = 70.0
 font_size = 54
-stroke_width = 2
+stroke_width = 4
 color = "#FFFFFF"
-highlight_color = "#00FFCC"
+highlight_color = "#00E5FF"
 text_background_color = "#000000"
 rounded_subtitle_background = true
 
 [audio]
 bgm_type = "random"
-bgm_volume = 0.16
+bgm_volume = 0.18
 bgm_ducking = true
 bgm_ducking_volume = 0.08
