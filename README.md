@@ -164,6 +164,14 @@ start → script_generated → audio_generated → subtitle_generated → materi
 ### 3. Word-Aligned Fitted Pill Karaoke Subtitles
 Subtitle rendering dynamically measures rendered text widths against screen bounds, generates rounded dark pill background patches behind active phrases, and highlights current words in real-time based on phonetic timestamps from Edge-TTS or Azure Speech.
 
+### 4. Procedural Python Animation & 2.5D Camera Motion
+When scenes require technical, forensic, or classified visual representations, the pipeline executes pure-Python procedural animations rather than generic stock:
+* **Procedural Motion Graphics Engine (`core/motion_graphics.py`)**: Uses Pillow (`PIL`) and mathematical easing curves to render frame-by-frame standalone video assets:
+  * **Classified Redacted Dossier**: Dynamically sweeps a black forensic highlighter across classified document lines.
+  * **Radar & Sonar Sweep**: Animates a rotating 360° detection sweep with pulsing concentric range rings and glowing target blips.
+  * **Vintage Map Location Ping**: Renders animated crosshairs locking onto coordinates with expanding shockwave pings.
+* **2.5D Ken Burns Camera Engine (`core/motion.py`)**: Converts static ComfyUI SDXL renders into fluid 1080x1920 30fps video clips with hardware-accelerated pan-and-scan camera movements (slow dramatic push-in, pull-out scene reveals, and macro vertical pans).
+
 ---
 
 ## 💻 Requirements
