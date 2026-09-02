@@ -261,6 +261,28 @@ pip install -r requirements.txt
 cp config.example.toml config.toml
 ```
 
+For quick onboarding, a minimal valid `config.toml` requires only these essential keys:
+```toml
+[app]
+# 1. Scriptwriter Provider (DeepSeek, OpenAI, or local Ollama)
+llm_provider = "deepseek"
+deepseek_api_key = "sk-your-deepseek-key-here"
+
+# 2. Local AI Movie Director (Sentence shot planning via Ollama)
+director_model = "qwen3:8b"
+ollama_base_url = "http://127.0.0.1:11434/v1"
+
+# 3. Free HD Vertical Stock B-Roll (from pexels.com/api)
+pexels_api_keys = ["YOUR_PEXELS_API_KEY"]
+
+# 4. ComfyUI SDXL Hero Scene Art & Thumbnails (Optional)
+comfyui_url = "http://127.0.0.1:8188"
+sdxl_checkpoint = "juggernautXL_ragnarok.safetensors"
+
+# 5. Hardware Acceleration
+enable_nvenc = true
+```
+
 ---
 
 ## ⚙️ Configuration Reference

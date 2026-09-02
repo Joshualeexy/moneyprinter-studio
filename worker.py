@@ -115,43 +115,103 @@ from core.researcher import fetch_topic_research
 from core.visual_fetcher import VisualFetcher
 
 
+VOICE_CATALOG = {
+    "en-US-ChristopherNeural": "authoritative, solemn, deep cosmic documentary male",
+    "en-GB-RyanNeural": "cinematic, refined, chilling British storytelling male",
+    "en-US-GuyNeural": "gritty, grounded, sharp true-crime investigative male",
+    "en-US-BrianNeural": "measured, gripping, mature investigative American male",
+    "en-US-AndrewNeural": "fast-paced, urgent, modern high-stakes male",
+    "en-GB-SoniaNeural": "atmospheric, eerie, classical British documentary female",
+    "en-US-AriaNeural": "sharp, intense, mysterious investigative American female",
+    "en-US-AvaNeural": "compelling, suspenseful, narrative American female",
+}
+
+
+def select_dynamic_voice(topic: str, script: str, profile: dict) -> str:
+    """Dynamically casts the optimal narrator voice based on the story's emotional tone and mystery."""
+    configured = profile.get("voice", {}).get("voice_name")
+    if configured and configured != "en-US-ChristopherNeural" and not profile.get("voice", {}).get("dynamic", True):
+        return configured
+
+    prompt = f"""You are the Executive Audio Casting Director for viral documentary shorts.
+Analyze this video topic and script, and select the single best narrator voice from the catalog below to maximize suspense and viewer retention.
+
+Catalog:
+- en-US-ChristopherNeural: Deep, solemn, authoritative male (Best for: deep space anomalies, cosmic voids, primordial megafauna, extinction events)
+- en-GB-RyanNeural: Cinematic, chilling British male (Best for: ancient ruins, forbidden archaeology, cataclysms, historical mysteries)
+- en-US-GuyNeural: Gritty, tense, noir forensic male (Best for: true crime cold cases, bank heists, FBI investigations)
+- en-US-BrianNeural: Mature, grounded, suspenseful American male (Best for: dark psychology, declassified mind control, military black ops)
+- en-US-AndrewNeural: Fast, urgent, modern investigative male (Best for: cutting-edge tech, cyber espionage, drone warfare)
+- en-GB-SoniaNeural: Atmospheric, eerie, classical British female (Best for: mythological disasters, ancient relics, sunken temples)
+- en-US-AriaNeural: Sharp, intense, mysterious American female (Best for: psychological experiments, strange medical puzzles, unsolved disappearances)
+
+Topic: "{topic}"
+Script excerpt: "{script[:250]}..."
+
+Return ONLY the exact voice identifier string (e.g. "en-GB-RyanNeural"). No punctuation, no explanation."""
+
+    app_cfg = _get_llm_config(profile)
+    try:
+        chosen = llm._generate_response(prompt, app_config=app_cfg)
+        if chosen:
+            chosen = chosen.strip().replace('"', '').replace("'", "")
+            for v in VOICE_CATALOG:
+                if v.lower() in chosen.lower():
+                    logger.info(f"[Casting Director] Selected voice: {v} for '{topic}'")
+                    return v
+    except Exception as e:
+        logger.warning(f"[Casting Director] Voice selection fallback: {e}")
+
+    return "en-US-ChristopherNeural"
+
+
 def build_system_script_prompt(profile: dict, topic: str, research_context: str = "") -> str:
     persona = profile.get("persona", {})
-    tone = persona.get("tone", "suspenseful, investigative, documentary")
     banned = persona.get("banned_phrases", [])
     banned_str = ", ".join(f'"{p}"' for p in banned) if banned else "None"
 
     target_cfg = profile.get("video_target", {})
-    min_w = target_cfg.get("min_words", 160)
-    max_w = target_cfg.get("max_words", 185)
+    min_w = target_cfg.get("min_words", 115)
+    max_w = target_cfg.get("max_words", 130)
 
     context_block = f"\n## Verified Archival Evidence & Intel:\n{research_context}\n" if research_context else ""
 
-    return f"""# Role: Master Investigative Documentarian & Viral Short-Form Screenwriter
+    return f"""# Role: Master Investigative Documentarian & Cinematic Short-Form Screenwriter
 # Niche: {profile['niche']['name']} ({profile['niche']['description']})
 # Subject: {topic}
 {context_block}
 
-## 4-Act High-Retention Viral Architecture:
-1. ACT I — THE ANOMALY HOOK (0-8s):
-   - Open with a jarring contradiction, impossible physical evidence, or cognitive dissonance.
-   - Never introduce yourself or say hello. Jump straight into the heart of the mystery.
+## CORE PRINCIPLE:
+Do not remove mystery. Amplify it. Dramatize genuine uncertainty, but do not fabricate fake physical evidence.
+If a claim is disputed or fringe, frame it clearly ("Some researchers believe...", "Claims surfaced that...").
 
-2. ACT II — THE INVESTIGATION & EVIDENCE (8-35s):
-   - Build narrative momentum with concrete forensic facts: exact dates, classified dossier codenames, physical measurements, or eyewitness testimony.
-   - Use staccato spoken cadence: keep sentences short (6 to 12 words max) with natural breathing pauses.
+## THE RETENTION BLUEPRINT (50-60 Seconds Spoken):
+1. THE HOOK (First 3-5 Seconds):
+   - Formula: [Specific Fact] + [Physical Anomaly] + [Unanswered Question].
+   - FORBIDDEN TO START WITH DATES OR LOCATIONS: Never open with "August 15th, 1977", "In 1997", "June 2011", or "Point Nemo".
+   - Open directly with the anomaly that makes the viewer say "Wait, how is that possible?".
+   - Examples of great hooks:
+     * "For seventy-two seconds, a telescope heard something from deep space—then it vanished."
+     * "A sonar scan mapped a massive geometric shape on the ocean floor, but when the crew dove back down, the target had moved."
 
-3. ACT III — THE MIDPOINT ESCALATION (35-52s):
-   - Just when the viewer thinks they understand the story, introduce the fatal paradox: conflicting laboratory data, suppressed archives, or an impossible anomaly that defies explanation.
+2. THE "BUT" ESCALATION RULE:
+   - Structure the story as a sequence of contradictions:
+     * "At first, researchers thought X."
+     * "But there was a problem: X couldn't explain Y."
+     * "So a second explanation was proposed—which created an even stranger mystery."
 
-4. ACT IV — THE UNSETTLING REVELATION & INFINITE LOOP (52-70s):
-   - Deliver a chilling concluding insight that leaves the viewer questioning what they know.
-   - Craft the final sentence so it flows seamlessly into the very first sentence, creating an infinite retention loop on TikTok and YouTube Shorts.
+3. SENTENCE RHYTHM (CRITICAL FOR NATURAL AUDIO):
+   - Write for spoken human narration.
+   - Mix flowing 12-to-18 word narrative sentences with short, impactful 4-to-6 word punchlines.
+   - FORBIDDEN TO WRITE CHOPPY 3-WORD FRAGMENTS. Avoid metronomic patterns like "Five men. One game. Zero reasons. Door unlocked. Keys gone." (This causes TTS to sound like a robot counting numbers). Use commas, clauses, and natural pauses.
 
-## Absolute Constraints:
-- Target Spoken Length: Strictly between {min_w} and {max_w} words (calibrated for exactly 65 to 75 seconds of narration).
-- Forbidden Clichés: Absolutely NEVER use {banned_str} or phrases like "in this video", "have you ever wondered", "dive into", "let me explain".
-- Spoken Cadence: Write strictly for audio narration. No markdown asterisks, no headers, no quotation marks, no narrator tags, and zero bracketed notes.
+4. THE CIRCULAR CALLBACK (Ending):
+   - Do not force a fake resolution. The strongest ending is an unsettling unanswered contradiction that loops back to the original mystery question.
+
+## ABSOLUTE CONSTRAINTS:
+- Exact Spoken Word Count: Strictly between {min_w} and {max_w} words (calibrated for exactly 50 to 58 seconds of high-retention narration).
+- Banned Clichés: Absolutely NEVER use {banned_str} or phrases like "in this video", "have you ever wondered", "dive into", "let's explore".
+- Spoken Audio Only: Zero markdown asterisks, no headers, no quotation marks, no narrator tags, no bracketed notes.
 """
 
 
@@ -187,15 +247,15 @@ def generate_niche_script(profile: dict, topic: str, research_context: str = "")
     script = re.sub(r'(?:Narrator|Voiceover|Audio|Host)\s*:\s*', '', script, flags=re.IGNORECASE)
 
     target_cfg = profile.get("video_target", {})
-    min_w = target_cfg.get("min_words", 160)
-    max_w = target_cfg.get("max_words", 185)
+    min_w = target_cfg.get("min_words", 115)
+    max_w = target_cfg.get("max_words", 130)
     word_count = len(script.split())
 
-    # Mandatory expansion loop: enforce strictly 65-75+ second duration
+    # Mandatory expansion loop: enforce strictly 50-60 second duration
     if word_count < min_w:
-        logger.info(f"Draft script is only {word_count} words. Auto-expanding to target {min_w}-{max_w} words for 65s+ duration...")
-        expand_prompt = f"""You are the Master Documentarian. The draft script below is only {word_count} words, which is too short for a 65-75 second documentary.
-Expand this script to strictly between {min_w} and {max_w} words by enriching it with concrete historical evidence, specific dates, forensic details, and intense narrative tension.
+        logger.info(f"Draft script is only {word_count} words. Auto-expanding to target {min_w}-{max_w} words for 55s duration...")
+        expand_prompt = f"""You are the Master Documentarian. The draft script below is only {word_count} words, which is too short for a 50-60 second documentary.
+Expand this script to strictly between {min_w} and {max_w} words by enriching it with the BUT escalation rule and natural spoken cadence.
 
 Draft Script:
 \"{script}\"
@@ -374,14 +434,14 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
             print(f"  ✓ Script ready ({len(state['script'].split())} words)")
 
         # -------------------------------------------------------------
-        # STAGE 2: Voice Narration (Edge TTS or configured provider)
+        # STAGE 2: Voice Narration (Edge TTS with AI Dynamic Casting)
         # -------------------------------------------------------------
         if state["stage"] in {"script_generated", "audio_generating"}:
             print(f"\n[2/5] Synthesizing voiceover narration...")
             audio_file = os.path.join(task_dir, "audio.mp3")
             voice_config = profile.get("voice", {})
-            voice_name = voice_config.get("voice_name", "en-US-ChristopherNeural")
-            voice_rate = float(voice_config.get("voice_rate", 1.0))
+            voice_name = select_dynamic_voice(state["topic"], state["script"], profile)
+            voice_rate = float(voice_config.get("voice_rate", 1.12))
 
             # Ensure 100% clean script before voice synthesis (zero bracketed metrics or word counts)
             clean_script = re.sub(r'\[.*?\]|\(.*?\)', '', state["script"]).strip()
@@ -390,6 +450,7 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
             clean_script = re.sub(r'(?:Narrator|Voiceover|Audio|Host)\s*:\s*', '', clean_script, flags=re.IGNORECASE).strip()
             state["script"] = clean_script
 
+            print(f"  🎙️ Cast Narrator Voice: {voice_name} (Rate: {voice_rate}x)")
             sub_maker = voice.tts(
                 text=clean_script,
                 voice_name=voice_name,
@@ -407,6 +468,8 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
             state.update({
                 "audio_file": audio_file,
                 "audio_duration": audio_duration,
+                "voice_name": voice_name,
+                "voice_rate": voice_rate,
                 "stage": "audio_generated"
             })
             checkpoint.save(state)
@@ -418,12 +481,14 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
         if state["stage"] in {"audio_generated", "subtitle_generating"}:
             print(f"\n[3/5] Generating word-aligned subtitles...")
             subtitle_path = os.path.join(task_dir, "subtitle.srt")
+            active_voice = state.get("voice_name", profile.get("voice", {}).get("voice_name", "en-US-ChristopherNeural"))
+            active_rate = float(state.get("voice_rate", profile.get("voice", {}).get("voice_rate", 1.12)))
             
             # Re-generate sub_maker for exact cues
             sub_maker = voice.tts(
                 text=state["script"],
-                voice_name=profile["voice"].get("voice_name", "en-US-ChristopherNeural"),
-                voice_rate=float(profile["voice"].get("voice_rate", 1.0)),
+                voice_name=active_voice,
+                voice_rate=active_rate,
                 voice_file=state["audio_file"],
             )
             voice.create_subtitle(text=state["script"], sub_maker=sub_maker, subtitle_file=subtitle_path)

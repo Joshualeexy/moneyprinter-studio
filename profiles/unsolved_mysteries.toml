@@ -5,10 +5,10 @@ description = "Bizarre unexplained historical events, missing expeditions, and c
 language = "en"
 
 [video_target]
-min_duration = 65.0
-max_duration = 75.0
-min_words = 160
-max_words = 185
+min_duration = 50.0
+max_duration = 60.0
+min_words = 115
+max_words = 130
 
 [series]
 enabled = true
@@ -35,7 +35,7 @@ banned_phrases = ["in today's video", "dive into", "welcome back", "hit that sub
 [voice]
 provider = "edge"
 voice_name = "en-US-ChristopherNeural"
-voice_rate = 1.0
+voice_rate = 1.12
 voice_volume = 1.0
 
 [visual]
