@@ -43,8 +43,8 @@ class ComfyClient:
         if self.is_alive():
             return True
         import subprocess
-        logger.info("[ComfyUI] Server is offline, launching ComfyUI on RTX 2070...")
-        cmd = "cd /home/kodar/comfyui/ComfyUI && ./venv/bin/python main.py --listen 127.0.0.1 --port 8188 --lowvram --dont-print-server"
+        comfy_dir = os.getenv("COMFY_PATH", os.path.expanduser("~/comfyui/ComfyUI"))
+        cmd = f"cd {comfy_dir} && ./venv/bin/python main.py --listen 127.0.0.1 --port 8188 --lowvram --dont-print-server"
         subprocess.Popen(cmd, shell=True, executable="/bin/bash", start_new_session=True)
         for _ in range(35):
             time.sleep(1)

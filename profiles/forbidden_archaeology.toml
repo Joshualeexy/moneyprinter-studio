@@ -1,0 +1,65 @@
+[niche]
+name = "Forbidden Archaeology"
+slug = "forbidden_archaeology"
+description = "Bizarre ancient megaliths, underground mega-cities, and out-of-place archaeological artifacts"
+language = "en"
+
+[video_target]
+min_duration = 65.0
+max_duration = 75.0
+min_words = 160
+max_words = 185
+
+[series]
+enabled = true
+current_arc = "Megaliths Science Cannot Explain"
+current_episode = 1
+total_episodes = 5
+episodes = [
+    "Göbekli Tepe: The 11,500-Year-Old Temple Built Before Agriculture",
+    "Derinkuyu: The 18-Story Subterranean City Carved into Solid Stone",
+    "The Yonaguni Monument: An Ancient Sunken Megalith Off Japan",
+    "Nan Madol: The Venice of the Pacific Built from 250 Million Tons of Basalt",
+    "The Kailasa Temple: Carved from a Single Mountain from the Top Down"
+]
+
+[llm]
+provider = "deepseek"
+model = "deepseek-chat"
+
+[persona]
+tone = "awe-inspiring, mysterious, investigative, questioning established dogma"
+hook_style = "paradox_or_shock"
+banned_phrases = ["in today's video", "dive into", "welcome back", "hit that subscribe button"]
+
+[voice]
+provider = "edge"
+voice_name = "en-US-ChristopherNeural"
+voice_rate = 1.0
+voice_volume = 1.0
+
+[visual]
+aspect_ratio = "9:16"
+source = "pexels"
+clip_duration = 2.8
+transition_mode = "fade"
+concat_mode = "sequential"
+negative_keywords = ["beach", "bikini", "resort", "vacation", "party", "food", "cooking", "meat", "eating", "restaurant", "chef", "shawarma", "kebab", "market", "grill", "dish", "culinary", "kitchen", "recipe", "cartoon"]
+
+[subtitle]
+font_name = "Montserrat-Black.ttf"
+enabled = true
+position = "custom"
+custom_position = 70.0
+font_size = 54
+stroke_width = 4
+color = "#FFFFFF"
+highlight_color = "#E0A96D"
+text_background_color = "#000000"
+rounded_subtitle_background = true
+
+[audio]
+bgm_type = "random"
+bgm_volume = 0.18
+bgm_ducking = true
+bgm_ducking_volume = 0.08

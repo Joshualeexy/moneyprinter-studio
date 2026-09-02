@@ -1,0 +1,65 @@
+[niche]
+name = "Deep Sea Anomalies"
+slug = "deep_sea"
+description = "Unexplained ocean acoustics, abyssal trench gigantism, and lost sunken wreckage"
+language = "en"
+
+[video_target]
+min_duration = 65.0
+max_duration = 75.0
+min_words = 160
+max_words = 185
+
+[series]
+enabled = true
+current_arc = "The Mariana Trench Sound Anomalies & Unmapped Depths"
+current_episode = 1
+total_episodes = 5
+episodes = [
+    "The 1997 Bloop and 5000-Meter Acoustic Signals",
+    "The Lost Submarine USS Scorpion Cold War Anomaly",
+    "Point Nemo: The Oceanic Spacecraft Graveyard",
+    "The Baltic Sea Anomaly: Ancient Sonar Monolith",
+    "Deep-Sea Gigantism in the Hadal Zone"
+]
+
+[llm]
+provider = "deepseek"
+model = "deepseek-chat"
+
+[persona]
+tone = "haunting, claustrophobic, deep sea investigative suspense"
+hook_style = "paradox_or_shock"
+banned_phrases = ["in today's video", "dive into", "welcome back", "hit that subscribe button"]
+
+[voice]
+provider = "edge"
+voice_name = "en-US-ChristopherNeural"
+voice_rate = 0.98
+voice_volume = 1.0
+
+[visual]
+aspect_ratio = "9:16"
+source = "pexels"
+clip_duration = 2.8
+transition_mode = "fade"
+concat_mode = "sequential"
+negative_keywords = ["beach", "bikini", "resort", "vacation", "party", "food", "cooking", "meat", "eating", "restaurant", "chef", "shawarma", "kebab", "market", "grill", "dish", "culinary", "kitchen", "recipe"]
+
+[subtitle]
+font_name = "Montserrat-Black.ttf"
+enabled = true
+position = "custom"
+custom_position = 70.0
+font_size = 54
+stroke_width = 4
+color = "#FFFFFF"
+highlight_color = "#00FFCC"
+text_background_color = "#000000"
+rounded_subtitle_background = true
+
+[audio]
+bgm_type = "random"
+bgm_volume = 0.18
+bgm_ducking = true
+bgm_ducking_volume = 0.08

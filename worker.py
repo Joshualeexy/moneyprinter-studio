@@ -613,7 +613,7 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
 
             state["stage"] = "completed"
             checkpoint.save(state)
-            checkpoint.archive(str(Path("output") / niche_slug), task_id)
+            checkpoint.archive(str(Path("storage") / "checkpoints" / niche_slug), task_id)
 
             # Clean worker status card
             print("\n============================================================")

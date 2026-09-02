@@ -3,8 +3,7 @@
 ==============================================================================
 Infinite Multi-Niche Autonomous Video Engine (run_infinite_generator.py)
 ==============================================================================
-Runs continuously across all niches (Dark History, Tech, Psychology, True Crime),
-producing full 5-episode narrative series with:
+Runs continuously across all niches, producing full 5-episode narrative series:
   • Frame-accurate sentence-timed visual cuts (zero audio desync)
   • Clean chronological folder naming (01_..., 02_..., 03_...)
   • ComfyUI SDXL Hero Scene cinematics
@@ -34,16 +33,35 @@ except Exception:
 from run_series import run_series
 from core.profile_loader import load_profile
 
-NICHES_QUEUE = [
-    ("dark_history", 5),
-    ("tech", 5),
-    ("deep_sea", 5),
-    ("psychology", 5),
-    ("space_anomalies", 5),
-    ("true_crime", 5),
-    ("money_heists", 5),
-    ("mythology", 5),
-]
+def get_niches_queue():
+    """Dynamically scans all profiles in profiles/*.toml to queue every available niche."""
+    profiles_dir = Path("profiles")
+    discovered = []
+    priority_order = [
+        "prehistoric",
+        "unsolved_mysteries",
+        "military_black_ops",
+        "forbidden_archaeology",
+        "space_anomalies",
+        "deep_sea",
+        "psychology",
+        "true_crime",
+        "money_heists",
+        "mythology",
+        "tech",
+        "ancient",
+        "dark_history",
+    ]
+    seen = set()
+    for slug in priority_order:
+        p_path = profiles_dir / f"{slug}.toml"
+        if p_path.exists():
+            discovered.append((slug, 5))
+            seen.add(slug)
+    for p in sorted(profiles_dir.glob("*.toml")):
+        if p.stem not in seen:
+            discovered.append((p.stem, 5))
+    return discovered
 
 
 def free_all_gpu_vram():
@@ -76,7 +94,7 @@ def run_infinite_loop():
     while True:
         log_generator(f"\n🔄 --- STARTING PIPELINE CYCLE #{cycle} ---")
         
-        for niche_slug, target_episodes in NICHES_QUEUE:
+        for niche_slug, target_episodes in get_niches_queue():
             log_generator(f"\n========================================================")
             log_generator(f"🎬 NICHE QUEUE: [{niche_slug.upper()}] (Target: {target_episodes} Episodes)")
             log_generator(f"========================================================")

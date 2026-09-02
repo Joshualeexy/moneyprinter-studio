@@ -72,8 +72,10 @@ Return a JSON array of {total_shots} objects. Return ONLY raw valid JSON."""
         from worker import _get_llm_config
         app_cfg = dict(_get_llm_config(self.profile))
         director_model = self.profile.get("llm", {}).get("director_model", "qwen3:8b")
-        app_cfg["ollama_model_name"] = director_model
-        logger.info(f"[Movie Director] Planning storyboard via fast lightweight '{director_model}'...")
+        if "qwen" in director_model.lower():
+            app_cfg["llm_provider"] = "ollama"
+            app_cfg["ollama_model_name"] = director_model
+        logger.info(f"[Movie Director] Planning storyboard via fast lightweight '{director_model}' on {app_cfg.get('llm_provider', 'ollama')}...")
 
         response = llm._generate_response(prompt, app_config=app_cfg)
 

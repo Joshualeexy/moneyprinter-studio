@@ -38,7 +38,7 @@ source = "pexels"
 clip_duration = 2.8
 transition_mode = "fade"
 concat_mode = "sequential"
-negative_keywords = [ "nature", "forest", "beach", "food", "party", "cartoon",]
+negative_keywords = [ "food", "chef", "nature", "party", "kebab", "meal", "eating", "dining", "restaurant", "market", "meat", "dish", "shawarma", "groceries", "cartoon", "breakfast", "forest", "snack", "lunch", "kitchen", "dinner", "culinary", "recipe", "cooking", "grill", "beach",]
 
 [subtitle]
 font_name = "Montserrat-Black.ttf"

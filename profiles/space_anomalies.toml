@@ -1,0 +1,65 @@
+[niche]
+name = "Space Anomalies"
+slug = "space_anomalies"
+description = "Unexplained cosmic radio bursts, interstellar visitors, and theoretical megastructures"
+language = "en"
+
+[video_target]
+min_duration = 65.0
+max_duration = 75.0
+min_words = 160
+max_words = 185
+
+[series]
+enabled = true
+current_arc = "Deep Space Anomalies Science Cannot Explain"
+current_episode = 1
+total_episodes = 5
+episodes = [
+    "The 1977 Wow! Signal: The 72-Second Deep Space Mystery",
+    "The Mystery of Oumuamua: The Interstellar Visitor",
+    "Tabby's Star and The Hypothetical Dyson Swarm",
+    "The Bootes Void: The 330-Million Light-Year Empty Space",
+    "Fast Radio Bursts from Repeating Magnetars"
+]
+
+[llm]
+provider = "deepseek"
+model = "deepseek-chat"
+
+[persona]
+tone = "awe-inspiring, existential, high stakes cosmic mystery"
+hook_style = "paradox_or_shock"
+banned_phrases = ["in today's video", "dive into", "welcome back", "hit that subscribe button"]
+
+[voice]
+provider = "edge"
+voice_name = "en-US-ChristopherNeural"
+voice_rate = 1.0
+voice_volume = 1.0
+
+[visual]
+aspect_ratio = "9:16"
+source = "pexels"
+clip_duration = 2.8
+transition_mode = "fade"
+concat_mode = "sequential"
+negative_keywords = ["beach", "bikini", "resort", "vacation", "party", "food", "cooking", "meat", "eating", "restaurant", "chef", "shawarma", "kebab", "market", "grill", "dish", "culinary", "kitchen", "recipe"]
+
+[subtitle]
+font_name = "Montserrat-Black.ttf"
+enabled = true
+position = "custom"
+custom_position = 70.0
+font_size = 54
+stroke_width = 4
+color = "#FFFFFF"
+highlight_color = "#BF55EC"
+text_background_color = "#000000"
+rounded_subtitle_background = true
+
+[audio]
+bgm_type = "random"
+bgm_volume = 0.18
+bgm_ducking = true
+bgm_ducking_volume = 0.08

@@ -385,6 +385,7 @@ def _generate_response(prompt: str, app_config=None) -> str:
         client = OpenAI(
             api_key=api_key,
             base_url=base_url,
+            timeout=60.0,
         )
 
         response = client.chat.completions.create(

@@ -1,0 +1,68 @@
+[niche]
+name = "Prehistoric Beasts & Extinctions"
+slug = "prehistoric"
+description = "Terrifying apex predators, primordial megafauna, and catastrophic prehistoric extinction events"
+language = "en"
+
+[video_target]
+min_duration = 65.0
+max_duration = 78.0
+min_words = 160
+max_words = 190
+
+[series]
+enabled = true
+current_arc = "Earth's Deadliest Primordial Monsters"
+current_episode = 1
+total_episodes = 5
+episodes = [
+    "Titanoboa: The 42-Foot Monster That Ruled the Post-Dinosaur Earth",
+    "The Permian Extinction: When 96% of All Life on Earth Was Exterminated",
+    "Megalodon vs Livyatan: The Deadliest Ocean War in Earth's History",
+    "Dunkleosteus: The Armored Monster with a Bite Force Stronger Than a T-Rex",
+    "The Carboniferous Nightmare: When 8-Foot Centipedes Ruled the Swamps",
+    "The Younger Dryas Catastrophe: The Cosmic Impact That Wiped Out Megafauna",
+    "Quetzalcoatlus: The Giraffe-Sized Flying Predator That Hunted on Land",
+    "Spinosaurus: The True River Monster That Dwarfed the Tyrannosaurus"
+]
+
+[llm]
+provider = "deepseek"
+model = "deepseek-chat"
+
+[persona]
+tone = "visceral, cinematic, primordial dread, high-stakes natural history documentary"
+hook_style = "paradox_or_shock"
+banned_phrases = ["in today's video", "dive into", "welcome back", "let's explore", "hit that subscribe button"]
+
+[voice]
+provider = "edge"
+voice_name = "en-US-ChristopherNeural"
+voice_rate = 1.0
+voice_volume = 1.0
+
+[visual]
+aspect_ratio = "9:16"
+source = "pexels"
+clip_duration = 2.8
+transition_mode = "fade"
+concat_mode = "sequential"
+negative_keywords = ["beach", "bikini", "resort", "vacation", "party", "food", "cooking", "meat", "eating", "restaurant", "chef", "shawarma", "kebab", "market", "grill", "dish", "culinary", "kitchen", "recipe", "cartoon", "modern city", "cars", "traffic", "smartphone", "office"]
+
+[subtitle]
+font_name = "Montserrat-Black.ttf"
+enabled = true
+position = "custom"
+custom_position = 70.0
+font_size = 54
+stroke_width = 4
+color = "#FFFFFF"
+highlight_color = "#FF4500"
+text_background_color = "#000000"
+rounded_subtitle_background = true
+
+[audio]
+bgm_type = "random"
+bgm_volume = 0.18
+bgm_ducking = true
+bgm_ducking_volume = 0.08

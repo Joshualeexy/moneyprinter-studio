@@ -1,557 +1,403 @@
 <div align="center">
 
-# MoneyPrinterTurbo 💸
+# 🎬 Autonomous Niche Cinema Engine
 
-### 一站式 AI 短视频生成工具
+### Configuration-driven AI documentary production pipeline for autonomous multi-niche video generation
 
-只需提供视频<b>主题</b>或<b>关键词</b>，即可自动生成视频脚本、匹配素材、生成字幕和背景音乐，并合成高清短视频。
+**Research • LLM Scriptwriting • AI Shot Direction • SDXL • TTS • Karaoke Subtitles • NVENC • Durable Checkpoints**
 
-[![Version](https://img.shields.io/github/v/release/harry0703/MoneyPrinterTurbo?color=blue&label=version)](https://github.com/harry0703/MoneyPrinterTurbo/releases)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/harry0703/MoneyPrinterTurbo/releases/latest)
-[![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Downloads](https://img.shields.io/github/downloads/harry0703/MoneyPrinterTurbo/total)](https://github.com/harry0703/MoneyPrinterTurbo/releases/latest)
+[![Python Version](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![NVIDIA NVENC](https://img.shields.io/badge/GPU%20Acceleration-NVIDIA%20NVENC-76B900?logo=nvidia&logoColor=white)](https://developer.nvidia.com/video-encode-decode-gpu-support-matrix)
+[![Ollama](https://img.shields.io/badge/Local%20Director-Ollama%20Qwen-black?logo=ollama&logoColor=white)](https://ollama.com/)
+[![ComfyUI SDXL](https://img.shields.io/badge/Hero%20Art-ComfyUI%20SDXL-blueviolet)](https://github.com/comfyanonymous/ComfyUI)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20WSL2-lightgrey.svg)](#-requirements)
 
-<a href="https://trendshift.io/repositories/8731" target="_blank"><img src="https://trendshift.io/api/badge/repositories/8731" alt="harry0703%2FMoneyPrinterTurbo | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-<a href="https://www.star-history.com/harry0703/moneyprinterturbo"><img src="https://api.star-history.com/badge?repo=harry0703/MoneyPrinterTurbo" alt="Star History Rank" style="height: 55px;" height="55"/></a>
-
-简体中文 | [English](README-en.md) | [日本語](README-ja.md) | [版本发布](https://github.com/harry0703/MoneyPrinterTurbo/releases) | [问题反馈](https://github.com/harry0703/MoneyPrinterTurbo/issues)
+<p align="center">
+  <a href="#-demo--showcase">Demo & Showcase</a> •
+  <a href="#-architectural-comparison">Architectural Comparison</a> •
+  <a href="#-key-systems--architecture">Key Systems</a> •
+  <a href="#-requirements">Requirements</a> •
+  <a href="#-1-click-installation">1-Click Install</a> •
+  <a href="#-manual-installation-guide">Manual Setup</a> •
+  <a href="#-configuration-reference">Configuration</a> •
+  <a href="#-cli-quickstart">CLI Quickstart</a> •
+  <a href="#-output-structure">Output Structure</a> •
+  <a href="#-niche-profiles">Niche Profiles</a>
+</p>
 
 </div>
 
-## 界面预览 🖥️
-
-<h4 align="center">WebUI</h4>
-
-![](docs/webui.jpg)
-
-<h4 align="center">API</h4>
-
-![](docs/api.jpg)
-
 ---
 
-## 特别感谢 ❤️
+## 📽️ Demo & Showcase
+
+A stateful, configuration-driven production pipeline that autonomously operates entire documentary content verticals: research, narrative script generation, shot planning, visual routing, audio synchronization, GPU compositing, high-contrast thumbnail rendering, and crash-resilient batch execution.
 
 <div align="center">
-  <a href="https://platform.kimi.com?track_id=track-2f5441d6ffd84c509dd079d78e9db5dc&aff=moneyprinterturbo" target="_blank"><img src="https://gcdn.moonshot.cn/growth-cdn/sponsor/kimi-zh.png" alt="Kimi 赞助 MoneyPrinterTurbo" width="100%"></a>
+
+| Generated Episode Demo (1080x1920) | Pipeline Execution Flow |
+| :---: | :---: |
+| <img src="docs/showcase/demo_preview.webp" width="280" alt="Generated episode demo with karaoke subtitles" /> | `Research` <br/> ↓ <br/> `Scriptwriter (qwen3-coder:30b / DeepSeek-V3)` <br/> ↓ <br/> `Director (qwen3:8b)` <br/> ↓ <br/> `Visual Routing (Stock / SDXL / Motion)` <br/> ↓ <br/> `Narration & Word Cues (TTS)` <br/> ↓ <br/> `Pill Karaoke Subtitles` <br/> ↓ <br/> `NVENC Hardware Compositing` <br/> ↓ <br/> `Thumbnail Generation` <br/> ↓ <br/> `Output Archive` |
+
 </div>
 
-感谢 [Kimi](https://platform.kimi.com?track_id=track-2f5441d6ffd84c509dd079d78e9db5dc&aff=moneyprinterturbo) 赞助本项目！[Kimi K3](https://www.kimi.com/blog/kimi-k3?aff=moneyprinterturbo) 是 Moonshot AI 迄今能力最强的模型，也是全球首个开源 3T 级模型，拥有原生视觉能力与 100 万 Token 上下文，在知识工作、推理和长周期任务中展现前沿性能。在 MoneyPrinterTurbo 中，K3 能直接驱动视频创作，不仅撰写视频文案，还会提炼素材搜索关键词、决定成片画面；对内容理解越准确，匹配到的素材就越贴题。
+### Live Generated Series Samples
 
-**MoneyPrinterTurbo 用户专属优惠：新用户通过专属链接注册，首次成功充值可获充值金额 10% 的 API 额度，最高赠送 ¥1000。活动截至 2026 年 9 月 30 日。前往 Kimi 开放平台（[中文站](https://platform.kimi.com?track_id=track-2f5441d6ffd84c509dd079d78e9db5dc&aff=moneyprinterturbo)｜[Global](https://platform.kimi.ai?track_id=track-f6b0a640d35c41deb03b247242a1058c&aff=moneyprinterturbo)）体验 API。**
-<br>
+Below are real episodes and high-contrast thumbnails generated autonomously across active niche profiles:
 
-<table align="center">
-  <tr>
-    <td align="center" width="120">
-      <a href="https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=MoneyPrinterTurbo"><img src="docs/sponsors/volcengine-logo.svg" alt="火山引擎" height="32"></a><br>
-      <a href="https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=MoneyPrinterTurbo"><strong>火山引擎</strong></a>
-    </td>
-    <td align="left">
-      感谢字节火山引擎赞助本项目！火山方舟 Agent/Coding Plan 国模套餐<strong>首购 9.9</strong>，支持 GLM-5.3、Kimi-K3、DeepSeek、MiniMax、Doubao 等，注册免费领 <strong>2500w Token</strong>，统一 API，适配编码与智能体开发。--&gt; <a href="https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=MoneyPrinterTurbo">立即前往</a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="120">
-      <a href="https://www.ccsub.net/register?ref=VCVDAWWY"><img src="docs/sponsors/ccsub-logo.png" alt="CCSub" height="36"></a><br>
-      <a href="https://www.ccsub.net/register?ref=VCVDAWWY"><strong>CCSub</strong></a>
-    </td>
-    <td align="left">
-      感谢 <a href="https://www.ccsub.net/register?ref=VCVDAWWY">CCSub</a> 赞助本项目！<strong>CCSub 是稳定、实惠的 AI API 中转平台，是 Claude Code 官方订阅的超强平替。</strong>一个 API Key 即可调用 Claude Opus 4.8、Sonnet 4.6、Haiku 4.5、GPT-5、Gemini 等模型，价格约为官方直连的 1/3，全球直连无需梯子。兼容 Claude Code、Codex、Cursor、Cline、Continue、Windsurf 等所有主流 AI 编程工具。前往 <a href="https://www.ccsub.net/register?ref=VCVDAWWY">www.ccsub.net</a> 注册即送 $5 体验额度。
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="120">
-      <a href="https://go.apimart.ai/gh-moneyprinterturbo"><img src="docs/sponsors/apimart-logo.png" alt="APIMart" width="100"></a>
-    </td>
-    <td align="left">
-      感谢 <a href="https://go.apimart.ai/gh-moneyprinterturbo">APIMart</a> 赞助了本项目！APIMart 是专注 AI 图片/视频生成的低价 API 平台，<strong>GPT-Image-2 低至 &#36;0.006/张，1 美元可出图 160+ 张</strong>。<strong>图片、视频一套异步 API 通吃，换模型不改代码</strong>；提交任务拿 ID，通过轮询或回调获取结果，支持万张级批量生成。按量付费、无月费，通过<a href="https://go.apimart.ai/gh-moneyprinterturbo">此注册链接</a>注册即可开用。
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="120">
-      <a href="https://infistar.cc/register?aff=6T4EYXP2&amp;ref_source=link"><img src="docs/sponsors/infistar-logo.svg" alt="Infistar.ai 无限星河" height="56"></a><br>
-      <a href="https://infistar.cc/register?aff=6T4EYXP2&amp;ref_source=link"><strong>Infistar.ai 无限星河</strong></a>
-    </td>
-    <td align="left">
-      感谢 <a href="https://infistar.cc/register?aff=6T4EYXP2&amp;ref_source=link">Infistar.ai 无限星河</a> 赞助本项目！<br>
-      ⚡ 超低成本与稳定调度：价格低至官方 1 折，模型倍率与调用明细全程透明；多路供应动态调度，告别限流与断连困扰。<br>
-      🧠 全系大模型完美驱动脚本：全面覆盖 OpenAI、Claude、Google Gemini、DeepSeek、通义千问（Qwen）等主流 LLM，兼容 OpenAI 标准接口，为 MoneyPrinterTurbo 的文案生成与素材关键词提炼提供低延迟、高并发支持。<br>
-      🎨 前沿多模态生态：全面接入 FLUX、Midjourney、Seedance、可灵（Kling）、Sora、Luma 等顶级生图与视频模型，满足下一代 AI 视频生成需求。<br>
-      🎁 MoneyPrinterTurbo 用户专属福利：通过 <a href="https://infistar.cc/register?aff=6T4EYXP2&amp;ref_source=link">专属推广链接</a> 注册即享 [专属赠送额度 / 首充特惠]，开箱即用！
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="120">
-      <a href="https://www.shengsuanyun.com/?from=CH_XUQ4OTSK"><img src="docs/sponsors/shengsuanyun-logo.jpg" alt="胜算云" height="56"></a><br>
-      <a href="https://www.shengsuanyun.com/?from=CH_XUQ4OTSK"><strong>胜算云</strong></a>
-    </td>
-    <td align="left">
-      感谢<a href="https://www.shengsuanyun.com/?from=CH_XUQ4OTSK">胜算云</a>对本项目的赞助！胜算云是面向 AI 原生团队的模型 API 聚合平台，汇集 Claude、ChatGPT、Gemini 等海内外大语言模型及多媒体模型，支持统一接入与按量调用。<br>
-      平台坚持合规 API 服务，杜绝逆向工程和资源稀释。此外平台提供企业级定制网关，包括团队成本与权限管理、智能路由、安全防护及 BYOK 密钥托管，并提供发票服务。<br>
-      🎁新用户通过<a href="https://www.shengsuanyun.com/?from=CH_XUQ4OTSK">此链接</a>注册，即可领取 10 元 Token 体验额度。
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="120">
-      <a href="https://reccloud.cn"><img src="docs/sponsors/reccloud-logo.svg" alt="录咖" height="36"></a><br>
-      <a href="https://reccloud.cn"><strong>录咖 AI</strong></a>
-    </td>
-    <td align="left">
-      由于该项目的 <strong>部署</strong> 和 <strong>使用</strong>，对于一些小白用户来说，还是 <strong>有一定的门槛</strong>，在此特别感谢 <a href="https://reccloud.cn">录咖（AI智能 多媒体服务平台）</a> 网站基于该项目，提供的免费 <code>AI视频生成器</code> 服务，可以不用部署，直接在线使用，非常方便。
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="120">
-      <a href="https://picwish.cn"><img src="docs/sponsors/picwish-logo.svg" alt="佐糖" height="36"></a><br>
-      <a href="https://picwish.cn"><strong>佐糖</strong></a>
-    </td>
-    <td align="left">
-      感谢 <a href="https://picwish.cn">佐糖</a> 对该项目的支持和赞助，使得该项目能够持续的更新和维护。佐糖专注于<strong>图像处理领域</strong>，提供丰富的<strong>图像处理工具</strong>，将复杂操作极致简化，真正实现让图像处理更简单。
-    </td>
-  </tr>
-</table>
+#### 🌌 Space Anomalies (`profiles/space_anomalies.toml`)
+| Ep 1: The 1977 Wow! Signal | Ep 2: The Mystery of Oumuamua | Ep 3: Tabby's Star Dyson Swarm | Ep 4: The Boötes Void |
+| :---: | :---: | :---: | :---: |
+| <img src="docs/showcase/space_wow_signal.jpg" width="220" /> | <img src="docs/showcase/space_oumuamua.jpg" width="220" /> | <img src="docs/showcase/space_tabbys_star.jpg" width="220" /> | <img src="docs/showcase/space_bootes_void.jpg" width="220" /> |
+| **Duration**: 107s \| **Size**: 28.9 MB | **Duration**: 100s \| **Size**: 27.0 MB | **Duration**: 116s \| **Size**: 30.2 MB | **Duration**: 97s \| **Size**: 26.3 MB |
 
-## 作者的另一个开源项目：MangoDisk ⭐
+#### 🌊 Deep Sea Horrors (`profiles/deep_sea.toml`)
+| Ep 1: The 1997 Bloop Signal | Ep 3: Point Nemo Graveyard | Ep 4: The Baltic Sea Monolith | Ep 5: Hadal Zone Gigantism |
+| :---: | :---: | :---: | :---: |
+| <img src="docs/showcase/deep_sea_bloop.jpg" width="220" /> | <img src="docs/showcase/deep_sea_point_nemo.jpg" width="220" /> | <img src="docs/showcase/deep_sea_baltic_anomaly.jpg" width="220" /> | <img src="docs/showcase/deep_sea_hadal_zone.jpg" width="220" /> |
+| **Duration**: 103s \| **Size**: 28.3 MB | **Duration**: 119s \| **Size**: 31.0 MB | **Duration**: 109s \| **Size**: 29.4 MB | **Duration**: 103s \| **Size**: 27.5 MB |
 
-<p align="center">
-  <a href="https://github.com/harry0703/MangoDisk">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://assets.mangodisk.app/images/readme/zh-dark.jpg">
-      <source media="(prefers-color-scheme: light)" srcset="https://assets.mangodisk.app/images/readme/zh-light.jpg">
-      <img src="https://assets.mangodisk.app/images/readme/zh-light.jpg" width="900" alt="MangoDisk 开源磁盘清理与空间分析工具">
-    </picture>
-  </a>
-</p>
+#### 🕵️ True Crime & Cold Cases (`profiles/true_crime.toml`)
+| Ep 1: The Yuba County Five | Ep 2: The D.B. Cooper Skyjacking | Ep 4: The Hinterkaifeck Murders |
+| :---: | :---: | :---: |
+| <img src="docs/showcase/true_crime_yuba_county.jpg" width="220" /> | <img src="docs/showcase/true_crime_db_cooper.jpg" width="220" /> | <img src="docs/showcase/true_crime_hinterkaifeck.jpg" width="220" /> |
+| **Duration**: 114s \| **Size**: 29.0 MB | **Duration**: 99s \| **Size**: 28.1 MB | **Duration**: 112s \| **Size**: 30.6 MB |
 
-<p align="center">
-  <strong>适用于 macOS 和 Windows 的安全优先开源磁盘清理与空间分析工具</strong><br>
-  查找大文件和重复文件，清理缓存与应用残留，安全释放磁盘空间。
-</p>
+#### 💎 World's Greatest Heists (`profiles/money_heists.toml`)
+| Ep 1: Antwerp Diamond Heist | Ep 2: Hatton Garden Vault Breach | Ep 4: Gardner Museum Art Heist |
+| :---: | :---: | :---: |
+| <img src="docs/showcase/heist_antwerp_diamond.jpg" width="220" /> | <img src="docs/showcase/heist_hatton_garden.jpg" width="220" /> | <img src="docs/showcase/heist_gardner_museum.jpg" width="220" /> |
+| **Duration**: 114s \| **Size**: 27.9 MB | **Duration**: 106s \| **Size**: 26.2 MB | **Duration**: 92s \| **Size**: 21.5 MB |
 
-<p align="center">
-  <a href="https://github.com/harry0703/MangoDisk">查看 GitHub 开源项目</a>
-</p>
+#### 🧠 Dark Psychology (`profiles/psychology.toml`)
+| Ep 1: Project MK-Ultra Subproject 68 | Ep 2: The Monster Study | Ep 3: Stanford Prison Experiment |
+| :---: | :---: | :---: |
+| <img src="docs/showcase/psych_mk_ultra.jpg" width="220" /> | <img src="docs/showcase/psych_monster_study.jpg" width="220" /> | <img src="docs/showcase/psych_stanford_prison.jpg" width="220" /> |
+| **Duration**: 84s \| **Size**: 22.2 MB | **Duration**: 97s \| **Size**: 25.1 MB | **Duration**: 102s \| **Size**: 27.1 MB |
 
 ---
 
-## 功能特性 🎯
+## ⚡ Architectural Comparison
 
-- [x] 提供 **AI Agent**、**WebUI**、**API** 和 **CLI** 四种使用方式，代码按控制器、服务和模型等职责分层
-- [x] 支持 **AI 自动生成视频脚本**，也可以使用自定义脚本
-- [x] 支持多种 **高清视频** 尺寸
-  - [x] 竖屏 9:16，`1080x1920`
-  - [x] 横屏 16:9，`1920x1080`
-- [x] 支持 **批量视频生成**，可以一次生成多个视频，然后选择一个最满意的
-- [x] 支持 **视频片段时长** 设置，方便调节素材切换频率
-- [x] 支持 **多语言视频脚本** 生成
-- [x] 支持 **Edge TTS**、**Azure Speech**、**SiliconFlow**、**Google Gemini**、**小米 MiMo**、**ElevenLabs**、**Chatterbox** 和 **Fish Audio** 语音合成，可实时试听
-- [x] 支持 **字幕生成**，可调整字体、位置、颜色、大小、描边和背景样式
-- [x] 支持 **背景音乐**，可随机选择或使用指定音乐，并调整音量
-- [x] 支持使用自己的 **本地素材**，也可从 **Pexels**、**Pixabay** 和 **Coverr** 获取可免费使用的高清素材
-- [x] 支持 **AI 生成素材**：接入 [WaveSpeed AI](https://wavespeed.ai) 文生视频模型（默认 Seedance），按脚本关键词直接生成全新画面，不再受限于库存素材
-- [x] 原生支持 **火山引擎方舟 Seedance** 文生视频，可配置模型或推理接入点 ID，并提供有限轮询与付费任务确认
-- [x] 支持 **Kimi / Moonshot AI**、**OpenAI**、**Anthropic Claude**、**Google Gemini**、**DeepSeek**、**阿里云通义千问**、**Microsoft Azure OpenAI**、**火山引擎方舟**、**xAI Grok**、**MiniMax**、**小米 MiMo** 等主流模型服务，并兼容 **Cloudflare AI Gateway**、**魔搭 ModelScope**、**AIHubMix**、**AIML API**、**EvoLink**、**Ollama**、**OneAPI**、**LiteLLM**、**Groq**、**Pollinations AI** 等统一网关、聚合平台和本地运行环境
-- [x] 支持一键 **跨平台发布**，生成完成后可自动上传至 **TikTok**、**Instagram** 和 **YouTube Shorts**
-- [x] 支持将生成设置**导出和导入**为预设文件，并在设置弹窗中备份和恢复所有 **API Key**
+MoneyPrinterTurbo (MPT) and Cinema Engine address short-video generation with fundamentally different design priorities:
 
-## 作品展示 🎬
+| Dimension | MoneyPrinterTurbo (MPT) | Autonomous Cinema Engine |
+| :--- | :--- | :--- |
+| **Primary Goal** | General-purpose AI short-video generation | Automated niche documentary series production |
+| **Workflow** | Topic → Script → Media → Video | Research → Script → Direction → Media Routing → Composition |
+| **Series Memory** | General batch generation | Explicit episodic state tracking (`current_arc`, `episodes`) |
+| **Visual Generation** | Stock & local media | Hybrid: Stock footage + ComfyUI SDXL + Procedural graphics |
+| **Director Layer** | Keyword & media matching | Sentence-level shot planning (`qwen3:8b`) |
+| **Thumbnails** | Standard video extraction | Dedicated high-contrast thumbnail generation |
+| **Failure Recovery** | Application-dependent | Persistent pipeline checkpoints (`pipeline_state_<niche>.json`) |
+| **GPU Strategy** | Optional GPU (CPU-first friendly) | GPU-aware local generation pipeline (NVENC + SDXL) |
 
-以下示例均由 MoneyPrinterTurbo 实际生成。
+### Scaling Batch Production
+Long-running media generation workers encounter specific scaling challenges when individual tasks are not isolated or explicitly managed:
+* **API Rate Limits**: Standard per-sentence queries can quickly exceed external stock API quotas. Cinema Engine implements local asset caching, query deduplication, and routes unfilmable or rate-limited scenes to local ComfyUI SDXL generation.
+* **Visual Repetition**: Keyword matching without contextual filtering often returns repetitive or irrelevant stock footage. Cinema Engine pairs an LLM director with per-niche negative keyword filters.
+* **Resource Leaks**: Video processing pipelines in long Python loops can accumulate memory and unclosed file descriptors. Cinema Engine executes generation in isolated worker subprocesses and triggers explicit garbage collection and VRAM flushes between tasks.
+* **Narrative Continuity**: Standalone generation lacks awareness of previously produced content. Cinema Engine tracks topic metadata across output directories to ensure distinct subjects within every narrative arc.
 
-### 竖屏 9:16
+---
 
-<table width="100%">
-<tr>
-<td align="center" width="25%"><a href="https://harry0703.github.io/mpt-assets/?video=03-zh-portrait-city-morning.mp4"><img src="https://github.com/harry0703/mpt-assets/releases/download/assets/03-zh-portrait-city-morning.jpg" width="180" alt="城市醒来的时刻"></a><br><strong>城市醒来的时刻</strong><br>中文 · 14 秒</td>
-<td align="center" width="25%"><a href="https://harry0703.github.io/mpt-assets/?video=05-zh-portrait-clean-energy.mp4"><img src="https://github.com/harry0703/mpt-assets/releases/download/assets/05-zh-portrait-clean-energy.jpg" width="180" alt="清洁能源的未来"></a><br><strong>清洁能源的未来</strong><br>中文 · 24 秒</td>
-<td align="center" width="25%"><a href="https://harry0703.github.io/mpt-assets/?video=07-zh-portrait-space-exploration.mp4"><img src="https://github.com/harry0703/mpt-assets/releases/download/assets/07-zh-portrait-space-exploration.jpg" width="180" alt="为什么我们仍要探索太空"></a><br><strong>为什么我们仍要探索太空</strong><br>中文 · 27 秒</td>
-<td align="center" width="25%"><a href="https://harry0703.github.io/mpt-assets/?video=17-zh-portrait-seed-journey.mp4"><img src="https://github.com/harry0703/mpt-assets/releases/download/assets/17-zh-portrait-seed-journey.jpg" width="180" alt="一粒种子的旅程"></a><br><strong>一粒种子的旅程</strong><br>中文 · 44 秒</td>
-</tr>
-<tr>
-<td align="center" width="25%"><a href="https://harry0703.github.io/mpt-assets/?video=09-en-portrait-future-robotics.mp4"><img src="https://github.com/harry0703/mpt-assets/releases/download/assets/09-en-portrait-future-robotics.jpg" width="180" alt="The Future of Everyday Robotics"></a><br><strong>The Future of Everyday Robotics</strong><br>English · 21 sec</td>
-<td align="center" width="25%"><a href="https://harry0703.github.io/mpt-assets/?video=11-en-portrait-small-habits.mp4"><img src="https://github.com/harry0703/mpt-assets/releases/download/assets/11-en-portrait-small-habits.jpg" width="180" alt="Small Habits, Lasting Change"></a><br><strong>Small Habits, Lasting Change</strong><br>English · 19 sec</td>
-<td align="center" width="25%"><a href="https://harry0703.github.io/mpt-assets/?video=13-en-portrait-creative-work.mp4"><img src="https://github.com/harry0703/mpt-assets/releases/download/assets/13-en-portrait-creative-work.jpg" width="180" alt="Making Space for Creative Work"></a><br><strong>Making Space for Creative Work</strong><br>English · 20 sec</td>
-<td align="center" width="25%"><a href="https://harry0703.github.io/mpt-assets/?video=15-en-portrait-coffee-science.mp4"><img src="https://github.com/harry0703/mpt-assets/releases/download/assets/15-en-portrait-coffee-science.jpg" width="180" alt="The Science Inside Coffee"></a><br><strong>The Science Inside Coffee</strong><br>English · 23 sec</td>
-</tr>
-</table>
+## 🏗️ Key Systems & Architecture
 
-### 横屏 16:9
+```mermaid
+flowchart TD
+    subgraph Configuration
+        P[profiles/*.toml\nNiche Definition]
+    end
 
-<table width="100%">
-<tr>
-<td align="center" width="25%"><a href="https://harry0703.github.io/mpt-assets/?video=02-zh-landscape-deep-ocean.mp4"><img src="https://github.com/harry0703/mpt-assets/releases/download/assets/02-zh-landscape-deep-ocean.jpg" width="280" alt="深海里的微光"></a><br><strong>深海里的微光</strong><br>中文 · 23 秒</td>
-<td align="center" width="25%"><a href="https://harry0703.github.io/mpt-assets/?video=04-zh-landscape-reading-power.mp4"><img src="https://github.com/harry0703/mpt-assets/releases/download/assets/04-zh-landscape-reading-power.jpg" width="280" alt="阅读如何塑造我们"></a><br><strong>阅读如何塑造我们</strong><br>中文 · 23 秒</td>
-<td align="center" width="25%"><a href="https://harry0703.github.io/mpt-assets/?video=06-zh-landscape-pour-over-coffee.mp4"><img src="https://github.com/harry0703/mpt-assets/releases/download/assets/06-zh-landscape-pour-over-coffee.jpg" width="280" alt="一杯手冲咖啡的细节"></a><br><strong>一杯手冲咖啡的细节</strong><br>中文 · 23 秒</td>
-<td align="center" width="25%"><a href="https://harry0703.github.io/mpt-assets/?video=08-zh-landscape-spring-journey.mp4"><img src="https://github.com/harry0703/mpt-assets/releases/download/assets/08-zh-landscape-spring-journey.jpg" width="280" alt="春天适合出发"></a><br><strong>春天适合出发</strong><br>中文 · 14 秒</td>
-</tr>
-<tr>
-<td align="center" width="25%"><a href="https://harry0703.github.io/mpt-assets/?video=10-en-landscape-ocean-conservation.mp4"><img src="https://github.com/harry0703/mpt-assets/releases/download/assets/10-en-landscape-ocean-conservation.jpg" width="280" alt="Why Ocean Conservation Matters"></a><br><strong>Why Ocean Conservation Matters</strong><br>English · 25 sec</td>
-<td align="center" width="25%"><a href="https://harry0703.github.io/mpt-assets/?video=14-en-landscape-sustainable-cities.mp4"><img src="https://github.com/harry0703/mpt-assets/releases/download/assets/14-en-landscape-sustainable-cities.jpg" width="280" alt="Designing More Sustainable Cities"></a><br><strong>Designing More Sustainable Cities</strong><br>English · 27 sec</td>
-<td align="center" width="25%"><a href="https://harry0703.github.io/mpt-assets/?video=16-en-landscape-mountain-perspective.mp4"><img src="https://github.com/harry0703/mpt-assets/releases/download/assets/16-en-landscape-mountain-perspective.jpg" width="280" alt="What Mountains Teach Us"></a><br><strong>What Mountains Teach Us</strong><br>English · 18 sec</td>
-<td align="center" width="25%"><a href="https://harry0703.github.io/mpt-assets/?video=18-en-landscape-history-of-flight.mp4"><img src="https://github.com/harry0703/mpt-assets/releases/download/assets/18-en-landscape-history-of-flight.jpg" width="280" alt="A Brief History of Human Flight"></a><br><strong>A Brief History of Human Flight</strong><br>English · 59 sec</td>
-</tr>
-</table>
+    subgraph Narrative & Audio
+        R[core/researcher.py\nFact Gathering]
+        S[app/services/llm.py\nScriptwriter: qwen3-coder:30b / DeepSeek]
+        V[app/services/voice.py\nNarration & Word Cues]
+    end
 
-## 配置要求 📦
+    subgraph Visual Direction
+        D[core/director.py\nDirector: Ollama qwen3:8b]
+        ROUTER{core/cinema_engine.py\nShot Visual Type}
+        STK[Pexels HD Stock]
+        SDXL[ComfyUI SDXL Hero Art]
+        MOG[core/motion_graphics.py\nProcedural Radar/HUD]
+    end
 
-- 建议系统：Windows 10、macOS 11.0 或更高版本，以及主流 Linux 发行版
-- 本地部署需要 Python 3.11 或更高版本，推荐使用 Python 3.11
-- GPU 不是必需项，但如果你希望本地转录、更快的视频处理或更顺畅的批量生成体验，建议使用带显存的独立显卡
+    subgraph Composition & State
+        COMP[app/services/video.py\nNVENC Compositor + Karaoke]
+        THUMB[core/thumbnail_generator.py\nHigh-Contrast Thumbnail]
+        CHK[core/checkpoint.py\nDurable State Machine]
+        OUT[output/<niche>/<episode>/\nFinal Video + Metadata]
+    end
 
-| 项目 | 最低配置 | 推荐配置        | 理想配置        |
-| ---- | -------- | --------------- | --------------- |
-| CPU  | 4 核     | 6 到 8 核       | 8 核及以上      |
-| RAM  | 4 GB     | 8 GB            | 16 GB 及以上    |
-| GPU  | 非必须   | 4 GB 显存及以上 | 8 GB 显存及以上 |
+    P --> R --> S --> V
+    S --> D --> ROUTER
+    ROUTER -->|Real World| STK --> COMP
+    ROUTER -->|Unfilmable / Sci-Fi| SDXL --> COMP
+    ROUTER -->|Classified / Radar| MOG --> COMP
+    V --> COMP
+    COMP --> THUMB --> OUT
+    CHK -.->|Persists Phase State| COMP
 
-- 如果你主要依赖云端 LLM、云端 TTS 和在线素材源，CPU 与内存比 GPU 更重要
-- 如果你启用 `faster-whisper`、批量生成或更重的本地处理链路，GPU 会明显提升速度
-
-## 快速开始 🚀
-
-### 推荐使用方式
-
-- 不想手动安装和配置：直接使用 AI Agent 生成视频
-- Windows 用户：优先使用一键启动包，适合快速体验
-- macOS / Linux 用户：优先使用 `uv` 进行本地部署
-- 想要隔离运行环境：优先使用 Docker 部署
-
-### 使用 AI Agent 生成视频
-
-如果你的 AI Agent 支持读取 Skill 文档并操作本地终端，可以直接发送下面这段话。Agent 会自动完成安装、配置和视频生成；只有缺少必要的 API Key 时才会向你询问，完成后会返回生成的视频文件路径。目前支持 macOS 和 Windows。
-
-```text
-使用这个 Skill：https://raw.githubusercontent.com/harry0703/MoneyPrinterTurbo/main/docs/skill/SKILL.md
-帮我生成一个主题为“人工智能如何改变普通人的日常生活”的视频。
+    style S fill:#1e293b,stroke:#3b82f6,stroke-width:2px,color:#fff
+    style D fill:#1e293b,stroke:#8b5cf6,stroke-width:2px,color:#fff
+    style SDXL fill:#1e293b,stroke:#ec4899,stroke-width:2px,color:#fff
+    style COMP fill:#1e293b,stroke:#10b981,stroke-width:2px,color:#fff
+    style OUT fill:#0f172a,stroke:#22c55e,stroke-width:3px,color:#fff
 ```
 
-### 在 Google Colab 中运行
+### 1. VRAM-Aware Model Handoff
+To operate a local LLM director and local ComfyUI SDXL inference concurrently on an 8GB VRAM consumer GPU (e.g. RTX 2070 Max-Q):
+1. The Director (`qwen3:8b`) loads into VRAM and produces the frame-by-frame shot plan.
+2. The pipeline explicitly calls Ollama with `keep_alive: 0`, releasing the director's model allocation before ComfyUI starts.
+3. ComfyUI loads the SDXL checkpoint using `--lowvram` into the vacated GPU memory to render scene assets.
+4. Video compositing executes via hardware NVENC (`h264_nvenc`) with minimal memory overhead.
 
-免去本地环境配置，点击直接在 Google Colab 中快速体验 MoneyPrinterTurbo
+### 2. Durable Pipeline State Machine
+Every generation task is backed by an atomic checkpoint manager (`core/checkpoint.py`). If the process is interrupted or the machine reboots, execution resumes from the last completed phase without repeating finished compute:
 
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/harry0703/MoneyPrinterTurbo/blob/main/docs/MoneyPrinterTurbo.ipynb)
-
-### Windows 一键启动包
-
-下载一键启动包，解压直接使用（路径不要有 **中文**、**特殊字符**、**空格**）
-
-- GitHub Releases：https://github.com/harry0703/MoneyPrinterTurbo/releases/latest
-
-下载后，建议先**双击执行** `update.bat` 更新到**最新代码**，然后双击 `start.bat` 启动
-
-启动后，会自动打开浏览器（如果打开是空白，建议换成 **Chrome** 或者 **Edge** 打开）
-
-## 安装部署 📥
-
-### 前提条件
-
-- 本地部署需要 Python 3.11 或更高版本
-- Windows 用户建议避免使用包含中文、特殊字符或空格的项目路径
-
-#### ① 克隆代码
-
-```shell
-git clone https://github.com/harry0703/MoneyPrinterTurbo.git
+```
+start → script_generated → audio_generated → subtitle_generated → materials_ready → video_rendered → completed
 ```
 
-#### ② 配置项目（可选）
+### 3. Word-Aligned Fitted Pill Karaoke Subtitles
+Subtitle rendering dynamically measures rendered text widths against screen bounds, generates rounded dark pill background patches behind active phrases, and highlights current words in real-time based on phonetic timestamps from Edge-TTS or Azure Speech.
 
-首次启动时，项目会根据 `config.example.toml` 自动创建 `config.toml`。大模型 Provider、素材来源和相关 API Key 可以直接在 WebUI 的基础设置中配置。
+---
 
-### Docker 部署 🐳
+## 💻 Requirements
 
-#### ① 启动 Docker
+| Component | Minimum | Recommended |
+| :--- | :--- | :--- |
+| **OS** | Linux (Ubuntu 20.04+, Arch, Debian) or Windows WSL2 | Linux (Ubuntu 22.04+ / Arch Linux) |
+| **CPU** | 4-Core x86_64 CPU | 8-Core modern CPU |
+| **System RAM** | 16 GB RAM | 32 GB RAM |
+| **GPU** | NVIDIA GPU with 8 GB VRAM (RTX 2060/2070) | NVIDIA GPU with 12+ GB VRAM (RTX 3060/4070+) |
+| **Storage** | 20 GB free disk space | 100+ GB SSD (for SDXL checkpoints & video cache) |
+| **Software** | Python 3.10+, FFmpeg with NVENC support | Python 3.11+, FFmpeg (NVENC enabled), Ollama |
 
-如果未安装 Docker，请先安装 https://www.docker.com/products/docker-desktop/
+> [!NOTE]
+> CPU-only execution is supported for the scriptwriting, audio, stock footage, and subtitle composition phases. However, local ComfyUI SDXL image generation and hardware-accelerated encoding require a compatible NVIDIA GPU with CUDA and NVENC drivers.
 
-Windows 用户可以参考微软的文档：
+---
 
-1. https://learn.microsoft.com/zh-cn/windows/wsl/install
-2. https://learn.microsoft.com/zh-cn/windows/wsl/tutorials/wsl-containers
+## 🚀 1-Click Installation
 
-```shell
-cd MoneyPrinterTurbo
-docker compose -f docker-compose.release.yml up
+The automated setup script validates prerequisites, installs missing packages, configures Ollama, downloads director models, creates the Python environment, and links global CLI commands:
+
+```bash
+git clone https://github.com/yourusername/cinema-engine.git
+cd cinema-engine
+chmod +x install.sh
+
+# Run interactive installer
+./install.sh
 ```
 
-> 默认推荐使用 `docker-compose.release.yml`，它会直接拉取 GitHub Container Registry 上的预构建镜像：`ghcr.io/harry0703/moneyprinterturbo:latest`。
-> 如果你需要本地重新构建镜像，可以继续使用 `docker compose up`。
-> 首次启动前，请将 `config.example.toml` 复制为 `config.toml`，供容器挂载使用。
+### Installer Options:
+* `-y, --yes`: Run non-interactively using default settings (ideal for headless servers or Docker builds).
+* `-h, --help`: Display usage and options.
 
-#### ② 访问 WebUI
+---
 
-打开浏览器，访问 http://127.0.0.1:8501
+## 🛠️ Manual Installation Guide
 
-#### ③ 访问 API 文档
+For manual setup on supported platforms:
 
-打开浏览器，访问 http://127.0.0.1:8080/docs 或者 http://127.0.0.1:8080/redoc
+### 1. Install System Dependencies
+* **Ubuntu / Debian**:
+  ```bash
+  sudo apt-get update && sudo apt-get install -y ffmpeg curl git python3 python3-venv python3-pip
+  ```
+* **Arch Linux / Manjaro**:
+  ```bash
+  sudo pacman -S --noconfirm ffmpeg curl git python
+  ```
+* **Fedora / RHEL**:
+  ```bash
+  sudo dnf install -y ffmpeg curl git python3 python3-devel
+  ```
 
-### 手动部署 📦
-
-> 视频教程
-
-- 完整的使用演示：https://v.douyin.com/iFhnwsKY/
-- 如何在 Windows 上部署：https://v.douyin.com/iFyjoW3M
-
-#### ① 创建虚拟环境
-
-推荐使用 [uv](https://docs.astral.sh/uv/) 管理 Python 环境和依赖。项目支持 Python 3.11 或更高版本，以下示例使用 Python 3.11。
-
-```shell
-git clone https://github.com/harry0703/MoneyPrinterTurbo.git
-cd MoneyPrinterTurbo
-uv python install 3.11
-uv sync --frozen
+### 2. Install & Configure Ollama (Local AI Director)
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+ollama serve &
+ollama pull qwen3:8b
 ```
 
-如果你暂时不使用 `uv`，也可以继续使用 `venv + pip`
+### 3. Setup ComfyUI SDXL (Optional for AI Hero Art)
+```bash
+mkdir -p ~/comfyui
+git clone https://github.com/comfyanonymous/ComfyUI.git ~/comfyui/ComfyUI
+cd ~/comfyui/ComfyUI
+python3 -m venv venv
+./venv/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+./venv/bin/pip install -r requirements.txt
 
-```shell
-python3.11 -m venv .venv
+# Place your SDXL checkpoint (e.g. juggernautXL_ragnarok.safetensors) into:
+# ~/comfyui/ComfyUI/models/checkpoints/
+```
+
+### 4. Setup Python Environment
+```bash
+cd /path/to/cinema-engine
+python3 -m venv .venv
 source .venv/bin/activate
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-说明：
-
-- `pyproject.toml` 是主依赖定义文件
-- `uv.lock` 是锁文件，建议默认执行 `uv sync --frozen`
-- `requirements.txt` 仅保留给旧的 `pip` 安装方式兼容使用
-
-#### ② 启动 WebUI 🌐
-
-注意需要到 MoneyPrinterTurbo 项目 `根目录` 下执行以下命令
-
-###### Windows
-
-```powershell
-.\webui.bat
+### 5. Setup Configuration
+```bash
+cp config.example.toml config.toml
 ```
 
-在 CMD 中也可以执行 `webui.bat`。
-`webui.bat` 会优先使用项目 `.venv` 或一键包内置 Python；如果没有找到项目 Python，但已安装 `uv`，会自动切换为 `uv run streamlit`。
-如需允许局域网内其他设备访问 WebUI，可以先执行 `set MPT_WEBUI_HOST=0.0.0.0`，再运行 `webui.bat`。
+---
 
-###### macOS 或 Linux
+## ⚙️ Configuration Reference
 
-```shell
-sh webui.sh
+Key settings in `config.toml`:
+
+| Setting | Description | Default / Example | Required |
+| :--- | :--- | :--- | :--- |
+| `deepseek_api_key` | DeepSeek API key for scriptwriting | `"sk-..."` | Optional (if using Ollama) |
+| `openai_api_key` | OpenAI API key for scriptwriting | `"sk-..."` | Optional |
+| `ollama_model_name` | Ollama model for local scriptwriting | `"qwen3-coder:30b"` | Optional |
+| `director_model` | Lightweight local model for shot planning | `"qwen3:8b"` | Yes |
+| `pexels_api_keys` | List of Pexels API keys (supports rotation) | `["YOUR_PEXELS_KEY"]` | Recommended |
+| `comfyui_url` | ComfyUI HTTP endpoint | `"http://127.0.0.1:8188"` | Yes (for SDXL) |
+| `sdxl_checkpoint` | Checkpoint name in ComfyUI checkpoints dir | `"juggernautXL_ragnarok.safetensors"` | Yes (for SDXL) |
+| `enable_nvenc` | Hardware-accelerated GPU video encoding | `true` | Recommended |
+
+### Provider Architecture
+The pipeline decouples service providers from core orchestration:
+* **Scriptwriter**: DeepSeek-V3, OpenAI, or local `qwen3-coder:30b` (Qwen3-Coder 30B; 30.5B total parameters, 3.3B activated)
+* **AI Director**: Ollama (`qwen3:8b` or `qwen2.5:7b`)
+* **Voice & Subtitles**: Edge-TTS (default cloud-free) or Azure Cognitive Speech
+* **Hero Visuals**: ComfyUI (SDXL)
+* **B-Roll Footage**: Pexels, Pixabay, or local clip libraries
+
+---
+
+## 🎬 CLI Quickstart
+
+Manage the engine using `./run_worker.sh` (or the globally linked `cinema-engine` command):
+
+### Generate a Multi-Episode Series
+Generates sequential episodes for a specific niche with chronological numbering, metadata, and thumbnails:
+```bash
+./run_worker.sh series prehistoric 5        # Primordial beasts & mass extinctions
+./run_worker.sh series space_anomalies 5    # Deep space anomalies
+./run_worker.sh series true_crime 5         # Unsolved cold cases
+./run_worker.sh series money_heists 5       # World's greatest heists
+./run_worker.sh series psychology 5         # Dark psychology experiments
 ```
 
-脚本会自动使用项目虚拟环境或 `uv`，并选择可用的本地端口。如需允许局域网内其他设备访问，可以执行：
-
-```shell
-MPT_WEBUI_HOST=0.0.0.0 sh webui.sh
+### Run the 24/7 Autonomous Daemon
+Continuously cycles through all configured niche profiles, creating new episodes and auto-progressing through content arcs:
+```bash
+./run_worker.sh infinite
 ```
 
-启动后，会自动打开浏览器（如果打开是空白，建议换成 **Chrome** 或者 **Edge** 打开）
-
-#### ③ 启动 API 服务 🚀
-
-```shell
-uv run python main.py
+### Check Worker Status & Generated Video Count
+```bash
+./run_worker.sh status
 ```
 
-如果你已经手动激活了虚拟环境，也可以直接执行：
-
-```shell
-python main.py
+### List Available Niche Profiles
+```bash
+./run_worker.sh profiles
 ```
 
-#### ④ 纯命令行方式（无浏览器）⌨️
+---
 
-如果你无法使用浏览器或端口转发，可以直接在命令行生成视频。最简单的完整视频生成命令如下：
+## 📁 Output Structure
 
-```shell
-uv run python cli.py --video-subject "人工智能如何改变日常生活"
+Completed videos are saved under `output/<niche_slug>/<episode_slug>/`:
+
+```
+output/
+└── space_anomalies/
+    └── 01_the_1977_wow_signal_the_72_second_deep_space_/
+        ├── 01_the_1977_wow_signal_the_72_second_deep_space_.mp4  # Final 1080x1920 MP4
+        ├── thumbnail.jpg                                        # High-contrast 9:16 thumbnail
+        └── metadata.json                                        # Runtime & topic metadata
 ```
 
-字幕样式和配音参数按以下优先级取值：**命令行显式参数 > `config.toml` 中
-`[ui]` 保存的 WebUI 设置 > 内置默认值**。其余生成设置（如背景音乐、视频数量、
-段落数量等）不会自动沿用 WebUI 的保存值。若 WebUI 中选择了上传自备音频，
-命令行需要显式传入 `--custom-audio-file`，因为音频路径不会被保存。
-
-如需查看完整命令、参数说明和使用方法，可以执行：
-
-```shell
-uv run python cli.py --help
+### Example `metadata.json`:
+```json
+{
+  "topic": "The 1977 Wow! Signal: The 72-Second Deep Space Mystery",
+  "niche": "space_anomalies",
+  "episode": 1,
+  "duration_seconds": 107.2,
+  "resolution": "1080x1920",
+  "file_path": "output/space_anomalies/01_the_1977_wow_signal_the_72_second_deep_space_/01_the_1977_wow_signal_the_72_second_deep_space_.mp4",
+  "thumbnail_file": "output/space_anomalies/01_the_1977_wow_signal_the_72_second_deep_space_/thumbnail.jpg"
+}
 ```
 
-如需顺序执行多个任务，可通过 `--batch-file` 提供 UTF-8 JSON 数组或 JSONL
-清单。CLI 参数作为全局默认值，每个对象可覆盖 `VideoParams` 字段：
+---
 
-```shell
-uv run python cli.py --batch-file ./tasks.json --stop-at video
-```
+## 📂 Niche Profiles
 
-清单最多包含 100 个任务且不超过 1 MiB。所有条目会在第一个任务启动前完成
-参数与本地文件预检；单个任务运行失败不会阻止后续条目，结束后会输出统一的
-JSON 汇总。清单中的相对自定义音频与本地素材路径以清单目录为基准。
+Niches are configured as modular TOML files in `profiles/`:
 
-## 语音合成 🗣
+* 🦖 **`prehistoric.toml`**: Titanoboa, Permian Extinction, Megalodon vs Livyatan, Dunkleosteus, Carboniferous Giants.
+* 🌌 **`space_anomalies.toml`**: Wow! Signal, Oumuamua, Tabby's Star, Boötes Void, Fast Radio Bursts.
+* 🌊 **`deep_sea.toml`**: 1997 Bloop, Point Nemo Graveyard, Baltic Sea Monolith, Hadal Zone Gigantism.
+* 🕵️ **`true_crime.toml`**: Yuba County Five, D.B. Cooper Skyjacking, Somerton Man, Hinterkaifeck.
+* 💎 **`money_heists.toml`**: Antwerp Diamond Heist, Hatton Garden Safe Deposit, Banco Central Fortaleza.
+* 🧠 **`psychology.toml`**: Project MK-Ultra, The Monster Study, Stanford Prison Experiment, The Third Wave.
+* 🏛️ **`forbidden_archaeology.toml`**: Göbekli Tepe (11,500 yrs old), Derinkuyu Underground City, Yonaguni Monument.
+* 🪖 **`military_black_ops.toml`**: Project Pluto (nuclear ramjet), Skunkworks SR-71 Blackbird, Project Azorian.
+* ❓ **`unsolved_mysteries.toml`**: Dyatlov Pass Incident, 1908 Tunguska Blast, Cicada 3301, Flight 19.
+* 💻 **`tech.toml`**: CIA 1984 Silicon Chip Fab, Quantum Supremacy, Deep Ocean Internet Cables.
+* 🏺 **`ancient.toml`**: Baghdad Battery, Greek Fire, Antikythera 2000-Year-Old Computer.
+* ⚔️ **`mythology.toml`**: Younger Dryas Cataclysm, Minoan Eruption of Thera, Lake Toba Supervolcano.
+* 📜 **`dark_history.toml`**: Historical coverups and declassified programs.
 
-默认使用免费的 **Edge TTS**，在 WebUI 中显示为 **Azure TTS V1**。项目同时支持 **Azure TTS V2**、**SiliconFlow TTS**、**Google Gemini TTS**、**小米 MiMo TTS**、**ElevenLabs TTS**、自托管 **Chatterbox TTS**、**Fish Audio TTS**，以及无配音模式。
-
-可直接在 WebUI 中选择 Provider 和音色，并按照界面提示填写所需凭据。Edge TTS 不需要 API Key；[Azure TTS V2](https://portal.azure.com/) 及其他云端服务需要对应平台的凭据。Edge TTS 音色可查看：[音色列表](./docs/voice-list.txt)。
-
-## 字幕生成 📜
-
-当前支持两种字幕生成方式：
-
-- **edge**：使用 TTS 时间戳生成字幕，速度快，不需要 GPU，默认使用该模式。
-- **whisper**：使用本地 `faster-whisper` 转写音频，适用于需要更准确字幕时间轴的场景。首次使用时需要下载模型。
-
-在 `config.toml` 中修改 `subtitle_provider` 即可切换模式。Whisper 默认使用约 3 GB 的 `large-v3`；如需更小、更快的模型，可以使用约 1.6 GB 的 `large-v3-turbo`：
-
+### Defining a Custom Niche Profile
+Create `profiles/my_niche.toml`:
 ```toml
-[app]
-subtitle_provider = "whisper"
+[niche]
+name = "Bizarre Medical Anomalies"
+slug = "medical_anomalies"
+description = "Incurable medical puzzles and historical anomalies"
 
-[whisper]
-model_size = "large-v3-turbo"
+[series]
+enabled = true
+current_arc = "Medical Mysteries Science Cannot Explain"
+total_episodes = 5
+episodes = [
+    "The 1518 Strasbourg Dancing Plague",
+    "The Enigma of Kuru: The Brain Laughing Disease",
+    "Phineas Gage: The Man Who Survived an Iron Spike Through the Brain"
+]
+
+[subtitle]
+highlight_color = "#FF0055"
+
+[visual]
+negative_keywords = ["food", "cooking", "beach", "party", "cartoon"]
 ```
 
-> 首次使用 Whisper 时，程序会自动从 Hugging Face 下载模型。如果当前网络无法自动下载，可以从 [Hugging Face](https://huggingface.co/Systran/faster-whisper-large-v3) 手动下载 `whisper-large-v3`。
+---
 
-下载并解压后，将整个目录放到 `.\MoneyPrinterTurbo\models`，最终路径应为 `.\MoneyPrinterTurbo\models\whisper-large-v3`：
+## 🤝 Contributing
 
-```
-MoneyPrinterTurbo
-  ├─models
-  │   └─whisper-large-v3
-  │          config.json
-  │          model.bin
-  │          preprocessor_config.json
-  │          tokenizer.json
-  │          vocabulary.json
-```
+Contributions and pull requests are welcome. Focus areas include:
+* Additional niche profiles in `profiles/`
+* New generative video backends (Wan2.1, HunyuanVideo, CogVideoX)
+* Additional procedural motion graphics overlays in `core/motion_graphics.py`
 
-## 背景音乐 🎵
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
-用于视频的背景音乐，位于项目的 `resource/songs` 目录下。
+---
 
-> 当前项目里面放了一些默认的音乐，来自于 YouTube 视频，如有侵权，请删除。
+## 📜 License
 
-## 字幕字体 🅰
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
 
-用于视频字幕的渲染，位于项目的 `resource/fonts` 目录下，你也可以放进去自己的字体。
-
-## 常见问题 🤔
-
-<details>
-<summary>如何发布到 TikTok、Instagram 或 YouTube Shorts？</summary>
-
-注册 [Upload-Post](https://upload-post.com/) 账号并获取 API Key，然后在 `config.toml` 的 `[app]` 下添加以下配置：
-
-```toml
-[app]
-upload_post_enabled = true
-upload_post_api_key = "your-api-key"
-upload_post_username = "your-username"
-upload_post_platforms = ["tiktok", "instagram", "youtube"]
-upload_post_auto_upload = true
-upload_post_youtube_privacy_status = "public"
-```
-
-保存配置并重启项目。视频生成完成后，程序会自动发布到已配置的平台。YouTube 可见性可设置为 `public`、`unlisted` 或 `private`。
-
-</details>
-
-<details>
-<summary>如何使用火山引擎方舟官方 Seedance 素材源？</summary>
-
-创建[火山方舟 API Key](https://console.volcengine.com/ark/region:ark+cn-beijing/apikey)，然后在 `[app]` 下配置：
-
-```toml
-[app]
-volcengine_seedance_api_key = "your-ark-api-key"
-volcengine_seedance_model = "doubao-seedance-1-0-pro-250528"
-volcengine_seedance_base_url = "https://ark.cn-beijing.volces.com/api/v3"
-```
-
-Seedance 专用配置为空时，会依次使用 `VOLCENGINE_ARK_API_KEY` 环境变量和已有的 `volcengine_api_key` 大模型配置。在视频源中选择“火山引擎 Seedance”，并在生成前明确确认付费任务；CLI 还需要传入 `--confirm-seedance-charge`。
-
-首版仅支持文生视频。每个片段都会创建一个异步付费方舟任务；程序只轮询同一个任务 ID，状态不明时停止继续下单，并仅生成足够覆盖配音时长的素材。
-
-</details>
-
-<details>
-<summary>RuntimeError: No ffmpeg exe could be found</summary>
-
-通常情况下，ffmpeg 会被自动下载，并且会被自动检测到。
-但是如果你的环境有问题，无法自动下载，可能会遇到如下错误：
-
-```
-RuntimeError: No ffmpeg exe could be found.
-Install ffmpeg on your system, or set the IMAGEIO_FFMPEG_EXE environment variable.
-```
-
-此时你可以从 https://www.gyan.dev/ffmpeg/builds/ 下载ffmpeg，解压后，设置 `ffmpeg_path` 为你的实际安装路径即可。
-
-```toml
-[app]
-# 请根据你的实际路径设置，注意 Windows 路径分隔符为 \\
-ffmpeg_path = "C:\\Users\\harry\\Downloads\\ffmpeg.exe"
-```
-
-</details>
-
-<details>
-<summary>OSError: [Errno 24] Too many open files</summary>
-
-这个问题是由于系统打开文件数限制导致的，可以通过修改系统的文件打开数限制来解决。
-
-查看当前限制
-
-```shell
-ulimit -n
-```
-
-如果过低，可以调高一些，比如
-
-```shell
-ulimit -n 10240
-```
-
-</details>
-
-<details>
-<summary>Whisper 模型下载失败</summary>
-
-```
-LocalEntryNotFoundError: Cannot find an appropriate cached snapshot folder for the specified revision on the local disk and
-outgoing traffic has been disabled.
-To enable repo look-ups and downloads online, pass 'local_files_only=False' as input.
-```
-
-或者
-
-```
-An error occurred while synchronizing the model Systran/faster-whisper-large-v3 from the Hugging Face Hub:
-An error happened while trying to locate the files on the Hub and we cannot find the appropriate snapshot folder for the
-specified revision on the local disk. Please check your internet connection and try again.
-Trying to load the model directly from the local cache, if it exists.
-```
-
-解决方法：[查看如何从 Hugging Face 手动下载模型](#%E5%AD%97%E5%B9%95%E7%94%9F%E6%88%90-)
-
-</details>
-
-## 反馈建议 📢
-
-- 可以提交 [issue](https://github.com/harry0703/MoneyPrinterTurbo/issues) 或者 [pull request](https://github.com/harry0703/MoneyPrinterTurbo/pulls)。
-
-## 许可证 📝
-
-点击查看 [`LICENSE`](LICENSE) 文件
-
-## Star History
-
-<a href="https://www.star-history.com/?repos=harry0703%2FMoneyPrinterTurbo&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=harry0703/MoneyPrinterTurbo&type=date&theme=dark&legend=top-left&sealed_token=AtOR8By6GcNKd46eJLixrnucHF_99GOSBBKfc60pAm2xsDylemaYxDMcvTlPRz-G_onzDrs-hDrM0xdKkn0L6PgDin3fv02ViVtsZvgRYgk0YOzkX2KgLG8wro66VGphii-u6GNpzD8JocrqGGKvsFSpmbRqo5g-2mEDaN7-ESdtF48ZH0rDOCpoc1Mh" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=harry0703/MoneyPrinterTurbo&type=date&legend=top-left&sealed_token=AtOR8By6GcNKd46eJLixrnucHF_99GOSBBKfc60pAm2xsDylemaYxDMcvTlPRz-G_onzDrs-hDrM0xdKkn0L6PgDin3fv02ViVtsZvgRYgk0YOzkX2KgLG8wro66VGphii-u6GNpzD8JocrqGGKvsFSpmbRqo5g-2mEDaN7-ESdtF48ZH0rDOCpoc1Mh" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=harry0703/MoneyPrinterTurbo&type=date&legend=top-left&sealed_token=AtOR8By6GcNKd46eJLixrnucHF_99GOSBBKfc60pAm2xsDylemaYxDMcvTlPRz-G_onzDrs-hDrM0xdKkn0L6PgDin3fv02ViVtsZvgRYgk0YOzkX2KgLG8wro66VGphii-u6GNpzD8JocrqGGKvsFSpmbRqo5g-2mEDaN7-ESdtF48ZH0rDOCpoc1Mh" />
- </picture>
-</a>
+*(For the legacy Streamlit WebUI documentation, see [docs/LEGACY_WEBUI.md](docs/LEGACY_WEBUI.md).)*

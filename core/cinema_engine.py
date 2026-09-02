@@ -134,7 +134,12 @@ def harvest_unique_timeline(
     """
     aspect = VideoAspect("9:16")
     visual_cfg = profile.get("visual", {})
-    profile_negatives = visual_cfg.get("negative_keywords", [])
+    profile_negatives = list(set(visual_cfg.get("negative_keywords", []) + [
+        "food", "cooking", "meat", "eating", "restaurant", "chef", "shawarma",
+        "kebab", "market", "grill", "dish", "culinary", "kitchen", "recipe",
+        "snack", "meal", "groceries", "dining", "lunch", "dinner", "breakfast",
+        "bikini", "beach", "swimwear", "vacation", "party", "dance", "vlog", "makeup"
+    ]))
     comfy = ComfyClient()
     comfy_available = comfy.ensure_running()
 
@@ -188,7 +193,13 @@ def harvest_unique_timeline(
             ]
 
             for q in candidate_queries:
-                clean_q = " ".join([w for w in q.split() if len(w) > 2][:4])
+                stop_words = {"and", "the", "for", "with", "from", "that", "this", "over"}
+                tokens = [w for w in q.split() if len(w) > 2 and w.lower() not in stop_words]
+                clean_q = " ".join(tokens[:4])
+                # Contextual safeguard: If query contains a city/place name without historical context, anchor it
+                if any(geo in clean_q.lower() for geo in ["baghdad", "rome", "egypt", "athens", "byzantine", "china", "maya", "iraq"]):
+                    if not any(k in clean_q.lower() for k in ["artifact", "relic", "ancient", "ruins", "history", "museum"]):
+                        clean_q += " ancient artifact" 
                 if not clean_q:
                     continue
                 try:

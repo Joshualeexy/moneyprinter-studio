@@ -1,7 +1,7 @@
 [niche]
-name = "Dark History"
-slug = "dark_history"
-description = "Untold historical paradoxes, ancient mysteries, and suppressed technological relics"
+name = "Ancient Mysteries"
+slug = "ancient"
+description = "Forbidden ancient inventions, lost high technology, and suppressed archaeological anomalies"
 language = "en"
 
 [video_target]
@@ -12,10 +12,10 @@ max_words = 185
 
 [series]
 enabled = true
-current_arc = "Forbidden Inventions History Forgot"
+current_arc = "Lost High Technology of the Ancients"
 current_episode = 1
-total_episodes = 5
-episodes = [ "The Baghdad Battery and Ancient Electricity", "Greek Fire: The Byzantines Lost Superweapon", "The Antikythera Mechanism: A 2000 Year Old Computer", "Damascus Steel and Ancient Nanotechnology", "The Roman Flexible Glass That Got Its Inventor Executed",]
+total_episodes = 3
+episodes = [ "The Baghdad Battery and Ancient Electricity", "Greek Fire: The Byzantines Lost Superweapon", "The Antikythera Mechanism: A 2000 Year Old Computer",]
 
 [llm]
 provider = "deepseek"

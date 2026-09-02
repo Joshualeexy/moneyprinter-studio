@@ -44,3 +44,6 @@ htmlcov/
 .codegraph
 /docs/superpowers
 .understand-anything
+pipeline_debug.log
+infinite_pipeline.log
+*.log
