@@ -22,6 +22,7 @@ from typing import List, Dict, Optional
 from loguru import logger
 from PIL import Image, ImageDraw, ImageFont
 
+from app.config import config
 from app.models.schema import VideoAspect
 from app.services import material
 from core.comfy_client import ComfyClient
@@ -187,7 +188,7 @@ def harvest_unique_timeline(
                         acquired_clip = clip_file
                         registry.register_asset(img_file, "sdxl", "image", topic, niche_name, episode_id)
 
-        # 3. Pexels HD Vertical Video Search with Candidate Ranking
+        # 3. Multi-Provider HD Stock Video Search (Pexels + Pixabay Fallback) with Candidate Ranking
         if not acquired_clip:
             search_query = getattr(shot_obj, "search_query", None) or f"{topic} {scene_text[:25]}"
             candidate_queries = [
@@ -197,6 +198,8 @@ def harvest_unique_timeline(
                 f"{niche_name} documentary",
                 f"{topic} drone"
             ]
+
+            preferred_source = (visual_cfg.get("source") or config.app.get("video_source", "pexels")).lower()
 
             for q in candidate_queries:
                 stop_words = {"and", "the", "for", "with", "from", "that", "this", "over"}
@@ -208,72 +211,96 @@ def harvest_unique_timeline(
                         clean_q += " ancient artifact" 
                 if not clean_q:
                     continue
+
+                items = []
+                # 3A. Primary Provider Search
                 try:
-                    items = material.search_videos_pexels(
-                        search_term=clean_q,
-                        minimum_duration=max(3, math.ceil(shot_dur)),
-                        video_aspect=aspect,
-                        negative_keywords=profile_negatives
-                    )
-                    # Candidate Ranking: score each asset against persistent registry
-                    scored_candidates = []
-                    for item in items:
-                        c_score = registry.score_candidate(
-                            item.url,
-                            niche=niche_name,
-                            episode_id=episode_id,
-                            active_episode_keys=used_asset_keys
+                    if preferred_source == "pixabay" and config.app.get("pixabay_api_keys"):
+                        items = material.search_videos_pixabay(
+                            search_term=clean_q,
+                            minimum_duration=max(3, math.ceil(shot_dur)),
+                            video_aspect=aspect
                         )
-                        if c_score > 0.0:
-                            scored_candidates.append((c_score, item))
+                    else:
+                        items = material.search_videos_pexels(
+                            search_term=clean_q,
+                            minimum_duration=max(3, math.ceil(shot_dur)),
+                            video_aspect=aspect,
+                            negative_keywords=profile_negatives
+                        )
+                except Exception as e:
+                    logger.debug(f"[Cinema Engine] Primary stock search ({preferred_source}) error for '{clean_q}': {e}")
 
-                    # Sort highest quality/freshness score first
-                    scored_candidates.sort(key=lambda x: x[0], reverse=True)
+                # 3B. Multi-Provider Failover: Pixabay fallback if Pexels returned zero items
+                if not items and preferred_source != "pixabay" and config.app.get("pixabay_api_keys"):
+                    try:
+                        logger.debug(f"[Cinema Engine] Pexels returned 0 items; querying Pixabay fallback for '{clean_q}'...")
+                        items = material.search_videos_pixabay(
+                            search_term=clean_q,
+                            minimum_duration=max(3, math.ceil(shot_dur)),
+                            video_aspect=aspect
+                        )
+                    except Exception as e:
+                        logger.debug(f"[Cinema Engine] Pixabay fallback error for '{clean_q}': {e}")
 
-                    for c_score, item in scored_candidates:
-                        dl_path = material.save_video(item.url, save_dir=task_dir)
-                        if dl_path and os.path.exists(dl_path) and os.path.getsize(dl_path) > 10000:
-                            used_asset_keys.add(item.url)
-                            registry.register_asset(
-                                item.url,
-                                provider="pexels",
-                                media_type="video",
-                                topic=topic,
-                                niche=niche_name,
-                                episode_id=episode_id
-                            )
-                            # Trim and scale exactly to shot_dur via FFmpeg
+                # Candidate Ranking: score each asset against persistent registry
+                scored_candidates = []
+                for item in items:
+                    c_score = registry.score_candidate(
+                        item.url,
+                        niche=niche_name,
+                        episode_id=episode_id,
+                        active_episode_keys=used_asset_keys
+                    )
+                    if c_score > 0.0:
+                        scored_candidates.append((c_score, item))
+
+                # Sort highest quality/freshness score first
+                scored_candidates.sort(key=lambda x: x[0], reverse=True)
+
+                for c_score, item in scored_candidates:
+                    dl_path = material.save_video(item.url, save_dir=task_dir)
+                    if dl_path and os.path.exists(dl_path) and os.path.getsize(dl_path) > 10000:
+                        used_asset_keys.add(item.url)
+                        prov = getattr(item, "provider", preferred_source)
+                        registry.register_asset(
+                            item.url,
+                            provider=prov,
+                            media_type="video",
+                            topic=topic,
+                            niche=niche_name,
+                            episode_id=episode_id
+                        )
+                        # Trim and scale exactly to shot_dur via FFmpeg
+                        subprocess.run([
+                            "ffmpeg", "-y", "-ss", "0", "-i", dl_path,
+                            "-t", f"{shot_dur:.3f}",
+                            "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
+                            "-r", "30", "-c:v", "h264_nvenc", "-preset", "p4", "-tune", "hq", "-pix_fmt", "yuv420p",
+                            clip_file
+                        ], capture_output=True, check=False)
+
+                        if not os.path.exists(clip_file) or os.path.getsize(clip_file) == 0:
+                            # Fallback to libx264
+                            if os.path.exists(clip_file):
+                                try:
+                                    os.remove(clip_file)
+                                except OSError:
+                                    pass
                             subprocess.run([
                                 "ffmpeg", "-y", "-ss", "0", "-i", dl_path,
                                 "-t", f"{shot_dur:.3f}",
                                 "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
-                                "-r", "30", "-c:v", "h264_nvenc", "-preset", "p4", "-tune", "hq", "-pix_fmt", "yuv420p",
+                                "-r", "30", "-c:v", "libx264", "-pix_fmt", "yuv420p",
                                 clip_file
                             ], capture_output=True, check=False)
 
-                            if not os.path.exists(clip_file) or os.path.getsize(clip_file) == 0:
-                                # Fallback to libx264
-                                if os.path.exists(clip_file):
-                                    try:
-                                        os.remove(clip_file)
-                                    except OSError:
-                                        pass
-                                subprocess.run([
-                                    "ffmpeg", "-y", "-ss", "0", "-i", dl_path,
-                                    "-t", f"{shot_dur:.3f}",
-                                    "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
-                                    "-r", "30", "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                                    clip_file
-                                ], capture_output=True, check=False)
-
-                            if os.path.exists(clip_file) and os.path.getsize(clip_file) > 0:
-                                acquired_clip = clip_file
-                                print(f"  ✓ Scene {idx+1}/{len(scenes)} [STOCK (score {c_score:.2f})]: Pexels HD Video for '{clean_q}' ({shot_dur:.2f}s)")
-                                break
-                    if acquired_clip:
-                        break
-                except Exception as e:
-                    logger.debug(f"[Cinema Engine] Pexels search error for '{clean_q}': {e}")
+                        if os.path.exists(clip_file) and os.path.getsize(clip_file) > 0:
+                            acquired_clip = clip_file
+                            print(f"  ✓ Scene {idx+1}/{len(scenes)} [STOCK (score {c_score:.2f})]: {prov.upper()} HD Video for '{clean_q}' ({shot_dur:.2f}s)")
+                            break
+                if acquired_clip:
+                    break
 
         # 4. Universal Fallback: ComfyUI SDXL bespoke scene generation
         if not acquired_clip:

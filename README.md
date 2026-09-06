@@ -65,7 +65,7 @@ Every image below represents an episode produced autonomously by the pipeline, c
 #### ☄️ What If Scenarios & Catastrophes (`profiles/what_if.toml`)
 | Ep 1: Earth Stops Spinning (5s) | Ep 2: Moon Disappears | Ep 3: Yellowstone Erupts | Ep 4: Sun Vanishes (7 Days) |
 | :---: | :---: | :---: | :---: |
-| <img src="docs/showcase/whatif_earth_stopped_spinning.jpg" width="220" /> | *(Dynamic AI Production)* | *(Dynamic AI Production)* | *(Dynamic AI Production)* |
+| <img src="docs/showcase/whatif_earth_stopped_spinning.jpg" width="220" /> | <img src="docs/showcase/whatif_moon_disappears.jpg" width="220" /> | <img src="docs/showcase/whatif_yellowstone_erupts.jpg" width="220" /> | <img src="docs/showcase/whatif_sun_vanishes.jpg" width="220" /> |
 | **Duration**: 53s \| **Size**: 14 MB | **Duration**: 55s \| **Size**: 15 MB | **Duration**: 58s \| **Size**: 16 MB | **Duration**: 52s \| **Size**: 14 MB |
 
 #### 🦖 Prehistoric Earth (`profiles/prehistoric.toml`)
