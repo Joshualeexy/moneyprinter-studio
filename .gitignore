@@ -66,6 +66,9 @@ streamlit.log
 
 # Temporary & Cache Dirs
 node_modules/
+services/**/node_modules/
+services/**/*_profile/
+services/**/.env
 /models/
 ./models/*
 CLAUDE.md

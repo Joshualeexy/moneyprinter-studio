@@ -199,11 +199,12 @@ The engine is fully model-agnostic and does not force you to run heavy local mod
    - The pipeline immediately issues a `{"model": "qwen3:8b", "keep_alive": 0}` request to flush weights from GPU memory.
    - ComfyUI SDXL is then triggered into the vacated VRAM, followed by hardware NVENC encoding.
 
-### 2. Evidence-Backed Research Pipeline (`core/researcher.py`)
+### 2. Evidence-Backed Research Pipeline (`core/researcher.py` & `services/scraper`)
 Rather than relying on ungrounded LLM prompts, the engine compiles a structured **Evidence Pack** before a single word of script is drafted:
-* **Multi-Source Ingestion**: Queries encyclopedic and archival APIs, extracting full-text abstracts and section dossiers.
+* **Autonomous Headless Web Intelligence Microservice (`services/scraper`)**: Powered by an asynchronous Node.js service running Playwright Stealth, hardware fingerprint synthesis, and automated client-side challenge resolution. Maintains a warm persistent browser pool to harvest live web insights, verified answer cards, and related investigative inquiry vectors in real-time.
+* **Encyclopedic Archival Grounding (Wikipedia)**: Pairs live web discoveries with authoritative encyclopedic records, extracting full-text abstracts, established historical consensus, and verified proper noun entities.
 * **Factual & Temporal Extraction**: Automatically parses verified dates, historical chronologies, geographical coordinates, and quantitative metrics using regex entity extractors.
-* **Directorial Grounding Mandate**: Injects strict factual boundaries into the scriptwriter prompt, forbidding the model from manufacturing fake expeditions, imaginary scientists, or fictional casualty figures.
+* **Directorial Grounding Mandate**: Injects strict factual boundaries into the scriptwriter prompt, forbidding the model from manufacturing fake expeditions, imaginary scientists, or fictional casualty figures while seamlessly falling back if the microservice is offline.
 
 ### 3. Persistent Asset Registry & Candidate Ranker (`core/asset_registry.py`)
 To prevent visual fatigue across multi-episode series while enabling intelligent footage reuse:
@@ -336,8 +337,6 @@ Configuration is managed via `config.toml` (ignored by git to protect credential
 
 ```toml
 log_level = "DEBUG"
-listen_host = "0.0.0.0"
-listen_port = 8080
 
 [app]
 # 1. Unified Scriptwriter & Movie Director (Cloud API or Local)

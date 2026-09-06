@@ -9,6 +9,7 @@ and verified physical entity anchors.
 ==============================================================================
 """
 
+import os
 import re
 import requests
 from typing import Any, Dict, List, Optional
@@ -16,6 +17,7 @@ from dataclasses import dataclass, field
 from loguru import logger
 
 USER_AGENT = "MoneyPrinterStudio-Researcher/2.0 (https://github.com/Joshualeexy/moneyprinter-studio; research-bot)"
+SCRAPER_API_URL = os.getenv("CUSTOM_SCRAPER_API_URL", "http://127.0.0.1:4050")
 
 DATE_PATTERN = re.compile(
     r"\b(?:(?:1[0-9]{3}|20[0-2][0-9])(?:s|\b)|(?:[0-9]{1,2}(?:th|st|nd|rd)?\s+century(?:\s+BC[E]?)?)|[0-9]{1,5}\s*BC[E]?)\b",
@@ -99,13 +101,35 @@ def _extract_entities(text: str) -> List[str]:
     return entities
 
 
+def _fetch_stealth_web_intelligence(topic: str, timeout: int = 12) -> Optional[Dict[str, Any]]:
+    """
+    Queries the autonomous stealth search microservice (services/scraper)
+    for live web research, answer box data, and related inquiry vectors.
+    """
+    try:
+        url = f"{SCRAPER_API_URL}/api/search"
+        resp = requests.get(url, params={"q": topic, "limit": 4}, timeout=timeout)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("status") == "ok" and (data.get("results") or data.get("answer_box") or data.get("people_also_ask")):
+                logger.info(f"[Researcher] Acquired live web intelligence for: '{topic}' ({len(data.get('results', []))} sources).")
+                return data
+    except Exception as e:
+        logger.debug(f"[Researcher] Stealth search microservice offline or timed out: {e}")
+    return None
+
+
 def fetch_topic_research(topic: str) -> Dict[str, str]:
     """
-    Fetches genuine historical and encyclopedic context for a topic,
-    distilling it into a structured Evidence Pack.
+    Fetches multi-source intelligence (live web research + encyclopedic grounding)
+    for a topic, distilling it into an authoritative, structured Evidence Pack.
     """
     logger.info(f"[Researcher] Sourcing multi-source factual intel for: '{topic}'...")
 
+    # Step 1: Query stealth search microservice for live web intelligence
+    web_intel = _fetch_stealth_web_intelligence(topic)
+
+    # Step 2: Query Wikipedia encyclopedic knowledge base
     search_url = "https://en.wikipedia.org/w/api.php"
     search_params = {
         "action": "query",
@@ -158,20 +182,43 @@ def fetch_topic_research(topic: str) -> Dict[str, str]:
 
     summary_text = full_extract.strip()
 
-    # Grounded Evidence Pack Synthesis
-    if summary_text:
-        claims = _extract_factual_claims(summary_text, max_claims=5)
-        dates = list(set(DATE_PATTERN.findall(summary_text)))[:6]
-        entities = _extract_entities(summary_text)
+    # Step 3: Format Live Web Intelligence Block
+    web_section = ""
+    web_claims = []
+    if web_intel:
+        web_items = []
+        if web_intel.get("answer_box"):
+            web_items.append(f"• Direct Key Finding: {web_intel['answer_box']}")
+            web_claims.append(web_intel['answer_box'])
+        for r in web_intel.get("results", [])[:3]:
+            snip = r.get("snippet", "").strip()
+            if snip:
+                web_items.append(f"• {r.get('title', '')}: {snip}")
+                web_claims.append(f"{r.get('title', '')} ({snip[:120]})")
+        if web_intel.get("people_also_ask"):
+            paa_str = " | ".join(web_intel["people_also_ask"][:3])
+            web_items.append(f"• Related Inquiries: {paa_str}")
+        if web_items:
+            web_section = "### Live Web Intelligence & Discovery Vectors:\n" + "\n".join(web_items) + "\n\n"
 
-        claims_md = "\n".join(f"- {c}" for c in claims) if claims else f"- Documented historical event: {title}"
-        dates_md = ", ".join(dates) if dates else "Documented historical timeline"
+    # Step 4: Grounded Evidence Pack Synthesis
+    combined_text = f"{summary_text} {web_section}".strip()
+    if combined_text:
+        claims = _extract_factual_claims(summary_text, max_claims=4) if summary_text else []
+        for wc in web_claims[:3]:
+            if len(claims) < 6 and wc not in claims:
+                claims.append(wc)
+
+        dates = list(set(DATE_PATTERN.findall(combined_text)))[:6]
+        entities = _extract_entities(combined_text)
+
+        claims_md = "\n".join(f"- {c}" for c in claims) if claims else f"- Documented topic investigation: {title}"
+        dates_md = ", ".join(dates) if dates else "Documented chronological timeline"
         entities_md = ", ".join(entities[:6]) if entities else title
 
-        formatted_context = f"""### Primary Encyclopedic Subject: {title}
-{summary_text[:600]}...
+        wiki_intro = f"### Primary Encyclopedic Subject: {title}\n{summary_text[:600]}...\n\n" if summary_text else ""
 
-### Verified Archival Claims:
+        formatted_context = f"""{web_section}{wiki_intro}### Verified Archival Claims:
 {claims_md}
 
 ### Key Temporal & Physical Anchors:
@@ -179,14 +226,14 @@ def fetch_topic_research(topic: str) -> Dict[str, str]:
 - Named Entities & Physical Sites: {entities_md}
 
 ### Directorial Fact-Checking Directives:
-- All narrative claims must align with the verified dates, metrics, and entities above.
+- All narrative claims must align with the verified findings, dates, metrics, and entities above.
 - Do NOT invent fictional discoveries, fake institutions, or synthetic paranormal theories.
-- Ground the drama in genuine physical reality and authentic historical documentation."""
+- Ground the drama in genuine physical reality and authentic documented findings."""
 
         pack = EvidencePack(
             topic=topic,
             title=title,
-            summary=summary_text[:400],
+            summary=(summary_text or (web_intel.get("answer_box") if web_intel else topic))[:400],
             verified_claims=claims,
             temporal_anchors=dates,
             key_entities=entities,
