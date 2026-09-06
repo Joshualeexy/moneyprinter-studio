@@ -29,16 +29,23 @@ else
 fi
 
 # Colors
+CYAN='\033[0;36m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
+BOLD='\033[1m'
 NC='\033[0m'
 
 show_banner() {
-    echo -e "${BLUE}======================================================${NC}"
-    echo -e "${BLUE}           🎬 MoneyPrinter Studio Worker              ${NC}"
-    echo -e "${BLUE}======================================================${NC}"
+    echo -e "${CYAN}======================================================${NC}"
+    echo -e "${CYAN}${BOLD}   🎬 Starting MoneyPrinter Studio Automation Stack   ${NC}"
+    echo -e "${CYAN}======================================================${NC}"
+    echo -e "${BLUE}[Media Core]${NC} Initializing Cinema Engine & Pure FFmpeg NVENC..."
+    echo -e "${BLUE}[Director]${NC}   AI Movie Director & Shot Planner ready."
+    echo -e "${BLUE}[Asset Pool]${NC} Pexels HD, Pixabay, & ComfyUI SDXL active."
+    echo -e "${BLUE}[Pipeline]${NC}   Press ${YELLOW}Ctrl+C${NC} at any time to pause or save checkpoint."
+    echo -e "${CYAN}------------------------------------------------------${NC}"
 }
 
 case "$1" in

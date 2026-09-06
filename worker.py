@@ -27,6 +27,7 @@ import subprocess
 import sys
 import time
 import re
+import unicodedata
 from pathlib import Path
 from uuid import uuid4
 
@@ -384,6 +385,110 @@ Return ONLY the raw JSON array. No explanations, no markdown formatting."""
     return anchored_beats if anchored_beats else [{"query": topic_clean, "fallback": topic_clean, "type": "stock", "negative_terms": []}]
 
 
+def _disp_width(s: str) -> int:
+    w = 0
+    for c in s:
+        if unicodedata.east_asian_width(c) in ('F', 'W') or ord(c) > 0x1F000:
+            w += 2
+        else:
+            w += 1
+    return w
+
+
+def _center_text(s: str, total_width: int) -> str:
+    sw = _disp_width(s)
+    rem = max(0, total_width - sw)
+    left = rem // 2
+    right = rem - left
+    return ' ' * left + s + ' ' * right
+
+
+def print_stage_header(stage_idx: int, total_stages: int, title: str):
+    header = f"[{stage_idx:02d}/{total_stages:02d}] {title.upper()}"
+    W = 66
+    content = header
+    if _disp_width(content) > W - 2:
+        content = content[:W - 5] + "..."
+    rem = (W - 2) - _disp_width(content)
+    print("\n╭" + "─" * W + "╮")
+    print(f"│ {content}" + " " * max(0, rem) + " │")
+    print("╰" + "─" * W + "╯")
+
+
+def print_worker_panel(profile: dict, state: dict, is_resumed: bool = False):
+    niche_name = profile.get("niche", {}).get("name", "Documentary")
+    arc = profile.get("series", {}).get("current_arc", "Independent Arc")
+    topic = state.get("topic", "Niche Production")
+    ep_num = state.get("episode_num")
+    ep_str = f"Episode {ep_num:02d}" if ep_num is not None else "Standalone Feature"
+
+    app_cfg = _get_llm_config(profile)
+    provider = app_cfg.get("llm_provider", "deepseek")
+    model = app_cfg.get(f"{provider}_model_name", "deepseek-chat")
+    voice_name = profile.get("voice", {}).get("voice_name", "en-US-ChristopherNeural")
+    rate = profile.get("voice", {}).get("voice_rate", 1.12)
+    stage = state.get("stage", "start")
+    source = (profile.get("visual", {}).get("source") or config.app.get("video_source", "pexels")).upper()
+
+    W = 66
+    title_str = "🎬 MONEYPRINTER STUDIO WORKER"
+
+    print("\n╭" + "─" * W + "╮")
+    print("│" + _center_text(title_str, W) + "│")
+    print("├" + "─" * W + "┤")
+
+    def row(label, val):
+        content = f"{label:<13} {val}"
+        if _disp_width(content) > W - 2:
+            content = content[:W - 5] + "..."
+        rem = (W - 2) - _disp_width(content)
+        return f"│ {content}" + " " * max(0, rem) + " │"
+
+    print(row("Target:", niche_name))
+    print(row("Series Arc:", arc))
+    print(row("Episode:", ep_str))
+    print(row("Subject:", topic))
+    print(row("Model:", f"{model} ({provider})"))
+    print(row("Director:", "Unified Movie Director (3s Beats)"))
+    print(row("Voice:", f"{voice_name} ({rate}x)"))
+    print(row("Visuals:", f"{source} HD | Pixabay | ComfyUI SDXL"))
+    print(row("Compositor:", "Pure FFmpeg NVENC (Hardware Accel)"))
+    status_str = f"Resuming checkpoint: {stage}" if is_resumed else f"Fresh Production ({stage})"
+    print(row("Status:", status_str))
+    print("╰" + "─" * W + "╯\n")
+
+
+def print_production_scorecard(metadata: dict, reg_stats: dict, dest_mp4: Path, meta_path: Path):
+    W = 74
+    title = "🎬 EPISODE PRODUCTION REPORT"
+    word_count = len(metadata["script"].split())
+    dur = metadata["duration_seconds"]
+    size = metadata["file_size_mb"]
+
+    print("\n╭" + "─" * W + "╮")
+    print("│" + _center_text(title, W) + "│")
+    print("├" + "─" * W + "┤")
+
+    def row(label, val):
+        content = f"{label:<17} {val}"
+        if _disp_width(content) > W - 2:
+            content = content[:W - 5] + "..."
+        rem = (W - 2) - _disp_width(content)
+        return f"│ {content}" + " " * max(0, rem) + " │"
+
+    print(row("Title:", metadata["title"]))
+    print(row("Subject:", metadata["topic"]))
+    print(row("Niche:", metadata["niche"].upper()))
+    print(row("Duration:", f"{dur}s ({word_count} words @ 1.12x rate)"))
+    print(row("Video Codec:", "Pure FFmpeg NVENC (Hardware Accelerated)"))
+    print(row("Asset Registry:", f"{reg_stats.get('total_assets', 0)} total | {reg_stats.get('fresh_assets', 0)} fresh | {reg_stats.get('reused_assets', 0)} ranked reuse"))
+    print(row("File Size:", f"{size} MB"))
+    print(row("Output Video:", str(dest_mp4)))
+    print(row("Thumbnail:", metadata["thumbnail_file"]))
+    print(row("Metadata JSON:", str(meta_path)))
+    print("╰" + "─" * W + "╯\n")
+
+
 def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_state: bool = False, episode_num: int = None):
     profile = load_profile(profile_path)
     niche_slug = profile["niche"]["slug"]
@@ -396,11 +501,8 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
         checkpoint.clear()
 
     state = checkpoint.load()
-    if state and state.get("stage") != "completed":
-        print(f"============================================================")
-        print(f" [Worker: {niche_slug}] Resuming from checkpoint: {state.get('stage')}")
-        print(f"============================================================")
-    else:
+    is_resumed = bool(state and state.get("stage") != "completed")
+    if not is_resumed:
         task_id = str(uuid4())
         state = {
             "task_id": task_id,
@@ -413,6 +515,10 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
         }
         checkpoint.save(state)
 
+    print_worker_panel(profile, state, is_resumed=is_resumed)
+    if is_resumed:
+        print(f"Resuming saved pipeline state from stage: {state.get('stage')}\n")
+
     task_id = state["task_id"]
     task_dir = utils.task_dir(task_id)
 
@@ -421,7 +527,7 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
         # STAGE 1: Research, Topic & Grounded Script
         # -------------------------------------------------------------
         if state["stage"] in {"start", "script_generating"}:
-            print(f"\n[1/5] Researching & writing script for '{state['topic']}'...")
+            print_stage_header(1, 6, f"Researching & Grounding: '{state['topic']}'")
             
             # Step 1A: Research factual evidence
             research_data = state.get("research")
@@ -461,7 +567,7 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
         # STAGE 2: Voice Narration (Edge TTS with AI Dynamic Casting)
         # -------------------------------------------------------------
         if state["stage"] in {"script_generated", "audio_generating"}:
-            print(f"\n[2/5] Synthesizing voiceover narration...")
+            print_stage_header(2, 6, "Synthesizing Narration & Dynamic Voice Casting")
             audio_file = os.path.join(task_dir, "audio.mp3")
             voice_config = profile.get("voice", {})
             voice_name = select_dynamic_voice(state["topic"], state["script"], profile)
@@ -503,7 +609,7 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
         # STAGE 3: Subtitles Alignment
         # -------------------------------------------------------------
         if state["stage"] in {"audio_generated", "subtitle_generating"}:
-            print(f"\n[3/5] Generating word-aligned subtitles...")
+            print_stage_header(3, 6, "Word-Aligned Subtitles & Karaoke Highlighting")
             subtitle_path = os.path.join(task_dir, "subtitle.srt")
             active_voice = state.get("voice_name", profile.get("voice", {}).get("voice_name", "en-US-ChristopherNeural"))
             active_rate = float(state.get("voice_rate", profile.get("voice", {}).get("voice_rate", 1.12)))
@@ -546,7 +652,7 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
         # STAGE 4: AI Movie Director — Storyboard & Visual Harvesting
         # -------------------------------------------------------------
         if state["stage"] in {"subtitle_generated", "materials_sourcing"}:
-            print(f"\n[4/5] AI Movie Director directing storyboard & harvesting visuals (ZERO ASSET REUSE)...")
+            print_stage_header(4, 6, "AI Movie Director Storyboard & Asset Harvesting")
             from core.cinema_engine import get_sentence_scenes, harvest_unique_timeline
             from core.director import MovieDirector, DirectorShot
             import dataclasses
@@ -597,7 +703,7 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
         # STAGE 5: Hardware-Accelerated NVENC Compositing
         # -------------------------------------------------------------
         if state["stage"] in {"materials_ready", "video_rendering"}:
-            print(f"\n[5/5] Hardware-rendering final video via NVENC on RTX 2070...")
+            print_stage_header(5, 6, "Pure FFmpeg NVENC Hardware Video Compositing")
             combined_video_path = os.path.join(task_dir, "combined.mp4")
             final_video_path = os.path.join(task_dir, "final.mp4")
             
@@ -653,6 +759,7 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
         # STAGE 6: Archive & Metadata Assembly
         # -------------------------------------------------------------
         if state["stage"] == "video_rendered":
+            print_stage_header(6, 6, "High-CTR Thumbnail & Archive Packaging")
             ep_num = state.get("episode_num")
             clean_slug = _slugify(state["topic"])[:45]
             if ep_num is not None:
@@ -668,13 +775,14 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
 
             # Step 6B: Render High-CTR Viral Thumbnail via ComfyUI SDXL & Bold Typography
             thumb_path = out_dir / "thumbnail.jpg"
+            thumb_prompt = state.get("thumbnail_prompt", f"dramatic cinematic shot of {state['topic']}")
+            print(f"  [ImageGenerator] Provider: 'comfyui' | Prompt: {thumb_prompt[:85]}...")
             try:
                 from core.thumbnail_generator import render_thumbnail_image
-                print(f"  🎨 Generating High-CTR Thumbnail via ComfyUI SDXL...")
                 render_thumbnail_image(
                     concept={
                         "thumbnail_text": state.get("thumbnail_text", "THEY HID THIS"),
-                        "thumbnail_prompt": state.get("thumbnail_prompt", f"dramatic cinematic shot of {state['topic']}")
+                        "thumbnail_prompt": thumb_prompt
                     },
                     output_path=str(thumb_path),
                     font_path="resource/fonts/Montserrat-Black.ttf"
@@ -708,22 +816,7 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
             # Comprehensive Production Scorecard & Observability
             from core.asset_registry import registry
             reg_stats = registry.get_stats()
-            word_count = len(metadata["script"].split())
-
-            print("\n================================================================================")
-            print(f" 🎬 EPISODE PRODUCTION REPORT [{niche_slug.upper()}]")
-            print("================================================================================")
-            print(f"  • Title:            {metadata['title']}")
-            print(f"  • Subject:          {metadata['topic']}")
-            print(f"  • Duration:         {metadata['duration_seconds']}s ({word_count} words @ 1.12x rate)")
-            print(f"  • Video Codec:      Pure FFmpeg NVENC (Hardware Accelerated)")
-            print(f"  • Visual Timeline:  {len(state.get('materials', []))} unique clips rendered")
-            print(f"  • Asset Registry:   {reg_stats.get('total_assets', 0)} registered | {reg_stats.get('fresh_assets', 0)} fresh | {reg_stats.get('reused_assets', 0)} ranked reuse")
-            print(f"  • File Size:        {metadata['file_size_mb']} MB")
-            print(f"  • Output Video:     {dest_mp4}")
-            print(f"  • Thumbnail:        {metadata['thumbnail_file']}")
-            print(f"  • Metadata JSON:    {meta_path}")
-            print("================================================================================\n")
+            print_production_scorecard(metadata, reg_stats, dest_mp4, meta_path)
 
     except KeyboardInterrupt:
         print(f"\n[Worker] Execution paused at stage '{state.get('stage')}'. Checkpoint saved.")
