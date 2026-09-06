@@ -217,9 +217,9 @@ If a claim is disputed or fringe, frame it clearly ("Some researchers believe...
 
 def _get_llm_config(profile: dict) -> dict:
     app_cfg = dict(config.app)
-    llm_cfg = profile.get("llm", {})
-    provider = llm_cfg.get("provider", "ollama").lower()
-    model = llm_cfg.get("model", "qwen3-coder-agent:latest")
+    llm_cfg = profile.get("llm", {}) if profile else {}
+    provider = (llm_cfg.get("provider") or app_cfg.get("llm_provider", "deepseek")).lower()
+    model = llm_cfg.get("model") or app_cfg.get(f"{provider}_model_name", "deepseek-chat")
     app_cfg["llm_provider"] = provider
     if provider == "ollama":
         app_cfg["ollama_model_name"] = model
@@ -234,7 +234,8 @@ def generate_niche_script(profile: dict, topic: str, research_context: str = "")
     """Generate script adhering strictly to niche persona and researched facts."""
     prompt = build_system_script_prompt(profile, topic, research_context)
     app_cfg = _get_llm_config(profile)
-    model_name = app_cfg.get("ollama_model_name") or profile.get("llm", {}).get("model", "qwen3-coder-agent:latest")
+    provider = app_cfg.get("llm_provider", "deepseek")
+    model_name = app_cfg.get(f"{provider}_model_name") or app_cfg.get("ollama_model_name", "deepseek-chat")
     response = None
     for attempt in range(1, 4):
         try:
@@ -254,7 +255,10 @@ def generate_niche_script(profile: dict, topic: str, research_context: str = "")
         fallback_cfg["llm_provider"] = "ollama"
         fallback_cfg["ollama_model_name"] = "qwen3:8b"
         fallback_cfg["ollama_base_url"] = "http://127.0.0.1:11434/v1"
-        response = llm._generate_response(prompt, app_config=fallback_cfg)
+        try:
+            response = llm._generate_response(prompt, app_config=fallback_cfg)
+        except Exception as e:
+            logger.warning(f"Ollama fallback failed: {e}")
 
     if not response or response.startswith("Error:"):
         raise RuntimeError(f"Script generation failed after retries and fallback: {response}")

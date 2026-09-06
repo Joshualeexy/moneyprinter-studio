@@ -9,7 +9,7 @@
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![NVIDIA NVENC](https://img.shields.io/badge/GPU%20Acceleration-NVIDIA%20NVENC-76B900?logo=nvidia&logoColor=white)](https://developer.nvidia.com/video-encode-decode-gpu-support-matrix)
-[![Ollama](https://img.shields.io/badge/Local%20Director-Ollama%20Qwen-black?logo=ollama&logoColor=white)](https://ollama.com/)
+[![LLM Support](https://img.shields.io/badge/AI%20Director-DeepSeek%20%7C%20OpenAI%20%7C%20Ollama-blue?logo=openai&logoColor=white)](https://api.deepseek.com)
 [![ComfyUI SDXL](https://img.shields.io/badge/Hero%20Art-ComfyUI%20SDXL-blueviolet)](https://github.com/comfyanonymous/ComfyUI)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20WSL2-lightgrey.svg)](#-system-requirements)
 
@@ -190,15 +190,14 @@ flowchart TD
 
 ## 🔬 Deep-Dive Subsystems
 
-### 1. Two-Tier LLM Architecture & VRAM Handshake
-Generating high-production video on consumer GPUs (e.g. 8GB VRAM) requires strict resource scheduling between LLMs, diffusion models, and video encoders:
-1. **Tier-1 Scriptwriter (`deepseek-chat` or `qwen3-coder:30b`)**: Generates research-grounded scripts strictly formatted to word bounds (115–130 words for 50–60s targets).
-2. **Tier-2 Movie Director (`qwen3:8b` via Ollama)**: Plans sentence-level camera movements, lighting, and asset types.
+### 1. Unified LLM Architecture & Flexible Director Engine
+The engine is fully model-agnostic and does not force you to run heavy local models:
+1. **Primary Cloud LLM (Recommended)**: The Movie Director executes on the **exact same model** you configure for scriptwriting (`deepseek-chat`, `gpt-4o`, `claude-3-5-sonnet`, etc.). If you use cloud APIs, **zero local LLM or Ollama setup is required**.
+2. **Optional Local Fallback (Ollama)**: If you prefer running 100% offline or air-gapped, local Ollama (`qwen3:8b`) is fully supported as an automated fail-safe.
 3. **Sequential GPU Handshake**:
-   - The director model runs shot planning in VRAM.
-   - The pipeline explicitly calls Ollama's API with `{"model": "qwen3:8b", "keep_alive": 0}` to immediately flush weights from VRAM.
-   - ComfyUI is triggered with `--lowvram` to generate SDXL hero frames into the vacated VRAM.
-   - Final rendering executes via hardware `h264_nvenc` with low VRAM footprint.
+   - When running local Ollama, the director runs shot planning in VRAM.
+   - The pipeline immediately issues a `{"model": "qwen3:8b", "keep_alive": 0}` request to flush weights from GPU memory.
+   - ComfyUI SDXL is then triggered into the vacated VRAM, followed by hardware NVENC encoding.
 
 ### 2. Intelligent Visual Routing & Fallback Matrix
 Every script segment is evaluated by the director and assigned to the most effective visual pipeline:
@@ -267,7 +266,7 @@ The engine comes pre-configured with **14 production-grade niche profiles** in `
 ## 🚀 Installation & Setup
 
 ### 1-Click Automated Setup
-The interactive installer verifies tools, configures Ollama, downloads director models, builds the virtual environment, and links CLI commands:
+The interactive installer verifies tools, offers optional offline Ollama configuration, builds the virtual environment, and links CLI commands:
 
 ```bash
 git clone https://github.com/Joshualeexy/moneyprinter-studio.git
@@ -291,7 +290,11 @@ sudo apt-get update && sudo apt-get install -y ffmpeg curl git python3 python3-v
 sudo pacman -S --noconfirm ffmpeg curl git python
 ```
 
-#### 2. Local AI Director Engine (Ollama)
+#### 2. AI Director & Scriptwriter (Cloud API or Local Ollama)
+The AI Director is **not limited or forced to run local models** — it uses the **exact same LLM backend** as your scriptwriter (`deepseek-chat`, `gpt-4o`, `claude-3-5-sonnet`, etc.).
+
+* **Cloud API (Recommended)**: If using DeepSeek, OpenAI, Claude, or any OpenAI-compatible provider, **skip this step entirely** (no local LLM or Ollama setup is needed).
+* **Local Offline Engine (Optional)**: If running 100% offline or air-gapped without API costs:
 ```bash
 curl -fsSL https://ollama.com/install.sh | sh
 ollama serve &
@@ -324,25 +327,27 @@ listen_host = "0.0.0.0"
 listen_port = 8080
 
 [app]
-# 1. Primary Scriptwriter (DeepSeek, OpenAI, or local Ollama)
+# 1. Unified Scriptwriter & Movie Director (Cloud API or Local)
+# Both script generation and director storyboard shot planning run seamlessly
+# through your configured LLM provider (DeepSeek, OpenAI, Gemini, Ollama, etc.):
 llm_provider = "deepseek"
 deepseek_api_key = "sk-your-deepseek-api-key"
 deepseek_base_url = "https://api.deepseek.com"
 deepseek_model_name = "deepseek-chat"
 
-# 2. Local Movie Director (Sentence-by-sentence shot planning via Ollama)
-director_model = "qwen3:8b"
+# Optional: Local Ollama fallback (only used if offline or if cloud API is unreachable)
 ollama_base_url = "http://127.0.0.1:11434/v1"
+ollama_model_name = "qwen3:8b"
 
-# 3. Stock Footage Providers (Free API key at pexels.com/api)
+# 2. Stock Footage Providers (Free API key at pexels.com/api)
 video_source = "pexels"
 pexels_api_keys = ["YOUR_PEXELS_API_KEY"]
 
-# 4. ComfyUI SDXL Hero Scene Art (Optional - for unfilmable scenes)
+# 3. ComfyUI SDXL Hero Scene Art (Optional - for unfilmable scenes)
 comfyui_url = "http://127.0.0.1:8188"
 sdxl_checkpoint = "juggernautXL_ragnarok.safetensors"
 
-# 5. Hardware Video Encoding
+# 4. Hardware Video Encoding
 video_codec = "libx264"
 enable_nvenc = true
 ```
@@ -351,7 +356,7 @@ enable_nvenc = true
 
 ## 🎬 CLI Reference
 
-Run the engine via `./run_worker.sh` (or the globally installed `cinema-engine` command):
+Run the engine via `./run_worker.sh` (or the globally installed `moneyprinter-studio` command):
 
 ### 1. Launch a Multi-Episode Series Arc
 Generates consecutive episodes for a niche, tracking topics and numbering sequentially:

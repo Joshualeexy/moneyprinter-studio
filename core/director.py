@@ -23,8 +23,8 @@ from app.services import llm
 def _get_llm_config(profile: dict) -> dict:
     app_cfg = dict(config.app)
     llm_cfg = profile.get("llm", {}) if profile else {}
-    provider = llm_cfg.get("provider", "ollama").lower()
-    model = llm_cfg.get("model", "qwen3-coder-agent:latest")
+    provider = (llm_cfg.get("provider") or app_cfg.get("llm_provider", "deepseek")).lower()
+    model = llm_cfg.get("model") or app_cfg.get(f"{provider}_model_name", "deepseek-chat")
     app_cfg["llm_provider"] = provider
     if provider == "ollama":
         app_cfg["ollama_model_name"] = model
@@ -92,6 +92,7 @@ Return a JSON array of {total_shots} objects. Return ONLY raw valid JSON."""
         logger.info(f"[Movie Director] Planning storyboard via '{model}' on {provider}...")
 
         response = None
+        used_ollama = (provider == "ollama")
         try:
             response = llm._generate_response(prompt, app_config=app_cfg)
         except Exception as e:
@@ -103,14 +104,19 @@ Return a JSON array of {total_shots} objects. Return ONLY raw valid JSON."""
             fallback_cfg["llm_provider"] = "ollama"
             fallback_cfg["ollama_model_name"] = "qwen3:8b"
             fallback_cfg["ollama_base_url"] = "http://127.0.0.1:11434/v1"
-            response = llm._generate_response(prompt, app_config=fallback_cfg)
+            try:
+                response = llm._generate_response(prompt, app_config=fallback_cfg)
+                used_ollama = True
+            except Exception as e:
+                logger.warning(f"[Movie Director] Ollama fallback failed: {e}")
 
-        # Offload Ollama model from memory if it was used
-        try:
-            import requests as _req
-            _req.post("http://127.0.0.1:11434/api/generate", json={"model": "qwen3:8b", "keep_alive": 0}, timeout=2)
-        except Exception:
-            pass
+        # Offload Ollama model from memory if Ollama was actually used
+        if used_ollama:
+            try:
+                import requests as _req
+                _req.post("http://127.0.0.1:11434/api/generate", json={"model": "qwen3:8b", "keep_alive": 0}, timeout=2)
+            except Exception:
+                pass
 
         raw_shots = []
         try:

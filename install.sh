@@ -117,15 +117,15 @@ else
 fi
 
 # ── 2. Setup / Verify Ollama & AI Director ─────────────────────────────────────
-log_info "Step 2/6: Checking Ollama local AI Director engine..."
+log_info "Step 2/6: Checking AI Director LLM backend (Cloud API vs. Local Ollama)..."
 
 if ! command -v ollama >/dev/null 2>&1; then
-    log_warn "Ollama is not installed on this system."
+    log_info "Ollama is not installed. (Note: The AI Director uses your primary cloud LLM like DeepSeek/OpenAI by default)."
     INSTALL_OLLAMA=false
     if [ "$AUTO_YES" = true ]; then
-        INSTALL_OLLAMA=true
+        INSTALL_OLLAMA=false
     else
-        read -p "Would you like to auto-install Ollama now? (y/N): " RESP
+        read -p "Would you like to install local Ollama for offline execution? (y/N): " RESP
         [[ "$RESP" =~ ^[Yy]$ ]] && INSTALL_OLLAMA=true
     fi
 
@@ -133,7 +133,7 @@ if ! command -v ollama >/dev/null 2>&1; then
         log_info "Installing Ollama via official installer..."
         curl -fsSL https://ollama.com/install.sh | sh
     else
-        log_warn "Skipping Ollama installation. (Note: You will need an Ollama instance or external LLM configured)."
+        log_info "Skipping Ollama. The pipeline will direct shots via your configured cloud LLM in config.toml."
     fi
 fi
 
@@ -150,12 +150,12 @@ if command -v ollama >/dev/null 2>&1; then
     # Check for fast storyboard director model
     INSTALLED_MODELS=$(ollama list 2>/dev/null | tail -n +2 | awk '{print $1}')
     if echo "$INSTALLED_MODELS" | grep -q "qwen3:8b"; then
-        log_success "Movie Director model 'qwen3:8b' is ready."
+        log_success "Local Movie Director fallback model 'qwen3:8b' is ready."
     elif echo "$INSTALLED_MODELS" | grep -qE "qwen.*8b|qwen2\.5"; then
         FOUND_QWEN=$(echo "$INSTALLED_MODELS" | grep -E "qwen" | head -1)
-        log_success "Found compatible Qwen model: '$FOUND_QWEN'"
+        log_success "Found compatible local Qwen model: '$FOUND_QWEN'"
     else
-        log_info "Pulling lightweight Director storyboard model 'qwen3:8b'..."
+        log_info "Pulling optional local Director storyboard model 'qwen3:8b'..."
         ollama pull qwen3:8b || log_warn "Could not auto-pull qwen3:8b. You can pull it later via: ollama pull qwen3:8b"
     fi
 fi
