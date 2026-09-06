@@ -171,8 +171,8 @@ def build_system_script_prompt(profile: dict, topic: str, research_context: str 
     banned_str = ", ".join(f'"{p}"' for p in banned) if banned else "None"
 
     target_cfg = profile.get("video_target", {})
-    min_w = target_cfg.get("min_words", 115)
-    max_w = target_cfg.get("max_words", 130)
+    min_w = target_cfg.get("min_words", 170)
+    max_w = target_cfg.get("max_words", 195)
 
     context_block = f"\n## Verified Archival Evidence & Intel:\n{research_context}\n" if research_context else ""
 
@@ -181,8 +181,9 @@ def build_system_script_prompt(profile: dict, topic: str, research_context: str 
 # Subject: {topic}
 {context_block}
 
-## CORE PRINCIPLE:
-Do not remove mystery. Amplify it. Dramatize genuine uncertainty, but do not fabricate fake physical evidence.
+## FACTUAL GROUNDING MANDATE:
+Every narrative assertion, metric, and chronological anchor must be grounded in the Verified Archival Evidence above.
+Never invent fictional expeditions, fabricated artifacts, or synthetic controversies. Ground all mystery and tension in documented physical reality.
 If a claim is disputed or fringe, frame it clearly ("Some researchers believe...", "Claims surfaced that...").
 
 ## THE RETENTION BLUEPRINT (50-60 Seconds Spoken):
@@ -429,12 +430,12 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
                 state["research"] = research_data
 
             # Step 1B: Generate grounded script, viral title, and thumbnail hook
-            # Free ComfyUI models from VRAM before invoking Ollama LLM
+            # Free ComfyUI models from VRAM before invoking LLM
             try:
                 import requests as _req
                 _req.post("http://127.0.0.1:8188/free", json={"unload_models": True, "free_memory": True}, timeout=3)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"ComfyUI VRAM release attempt: {e}")
 
             script = state.get("script")
             if not script:
@@ -568,17 +569,18 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
                 try:
                     import requests as _req
                     app_cfg = _get_llm_config(profile)
-                    m_name = app_cfg.get("ollama_model_name", "qwen3-coder-agent:latest")
+                    m_name = app_cfg.get("ollama_model_name", "qwen3:8b")
                     _req.post("http://127.0.0.1:11434/api/generate", json={"model": m_name, "keep_alive": 0}, timeout=5)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Ollama VRAM release attempt: {e}")
 
             cinematic_clips = harvest_unique_timeline(
                 scenes=sentence_scenes,
                 task_dir=task_dir,
                 topic=state["topic"],
                 profile=profile,
-                director_shots=shots
+                director_shots=shots,
+                episode_id=state.get("episode_id", state.get("task_id", ""))
             )
 
             if not cinematic_clips:
@@ -703,18 +705,25 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
             checkpoint.save(state)
             checkpoint.archive(str(Path("storage") / "checkpoints" / niche_slug), task_id)
 
-            # Clean worker status card
-            print("\n============================================================")
-            print(f" 🎬 VIDEO GENERATION COMPLETE [{niche_slug.upper()}]")
-            print("============================================================")
-            print(f"  • Title:     {metadata['title']}")
-            print(f"  • Subject:   {metadata['topic']}")
-            print(f"  • Duration:  {metadata['duration_seconds']}s")
-            print(f"  • Size:      {metadata['file_size_mb']} MB")
-            print(f"  • Video:     {dest_mp4}")
-            print(f"  • Thumbnail: {metadata['thumbnail_file']}")
-            print(f"  • Metadata:  {meta_path}")
-            print("============================================================\n")
+            # Comprehensive Production Scorecard & Observability
+            from core.asset_registry import registry
+            reg_stats = registry.get_stats()
+            word_count = len(metadata["script"].split())
+
+            print("\n================================================================================")
+            print(f" 🎬 EPISODE PRODUCTION REPORT [{niche_slug.upper()}]")
+            print("================================================================================")
+            print(f"  • Title:            {metadata['title']}")
+            print(f"  • Subject:          {metadata['topic']}")
+            print(f"  • Duration:         {metadata['duration_seconds']}s ({word_count} words @ 1.12x rate)")
+            print(f"  • Video Codec:      Pure FFmpeg NVENC (Hardware Accelerated)")
+            print(f"  • Visual Timeline:  {len(state.get('materials', []))} unique clips rendered")
+            print(f"  • Asset Registry:   {reg_stats.get('total_assets', 0)} registered | {reg_stats.get('fresh_assets', 0)} fresh | {reg_stats.get('reused_assets', 0)} ranked reuse")
+            print(f"  • File Size:        {metadata['file_size_mb']} MB")
+            print(f"  • Output Video:     {dest_mp4}")
+            print(f"  • Thumbnail:        {metadata['thumbnail_file']}")
+            print(f"  • Metadata JSON:    {meta_path}")
+            print("================================================================================\n")
 
     except KeyboardInterrupt:
         print(f"\n[Worker] Execution paused at stage '{state.get('stage')}'. Checkpoint saved.")

@@ -26,6 +26,7 @@ from app.models.schema import VideoAspect
 from app.services import material
 from core.comfy_client import ComfyClient
 from core.motion_graphics import create_redacted_dossier_clip, create_radar_pulse_clip
+from core.asset_registry import registry
 
 
 def get_sentence_scenes(srt_path: str, audio_duration: float, min_dur: float = 2.2, max_dur: float = 4.2) -> List[Dict]:
@@ -126,13 +127,15 @@ def harvest_unique_timeline(
     task_dir: str,
     topic: str,
     profile: dict,
-    director_shots: list = None
+    director_shots: list = None,
+    episode_id: str = ""
 ) -> List[str]:
     """
-    Acquires 100% UNIQUE visual assets for every single scene.
-    BANISHES asset reuse entirely.
+    Acquires visual assets for every scene with candidate ranking and persistent registry tracking.
+    Enforces strict zero-duplicate reuse intra-episode and dynamic cooldown across series.
     """
     aspect = VideoAspect("9:16")
+    niche_name = profile.get("niche", {}).get("name", "Documentary")
     visual_cfg = profile.get("visual", {})
     profile_negatives = list(set(visual_cfg.get("negative_keywords", []) + [
         "food", "cooking", "meat", "eating", "restaurant", "chef", "shawarma",
@@ -162,12 +165,14 @@ def harvest_unique_timeline(
             create_redacted_dossier_clip(clip_file, title=topic, duration=shot_dur)
             if os.path.exists(clip_file):
                 acquired_clip = clip_file
+                registry.register_asset(clip_file, "motion_graphic", "video", topic, niche_name, episode_id)
 
         elif any(k in lower_txt for k in ["sonar", "radar", "abyssal", "trench", "acoustic", "depth", "signal", "coordinates"]):
             print(f"  🎬 Scene {idx+1}/{len(scenes)} [MOTION GRAPHIC]: Rendering Animated Sonar Detection Sweep ({shot_dur:.2f}s)")
             create_radar_pulse_clip(clip_file, target_label=topic[:25], duration=shot_dur)
             if os.path.exists(clip_file):
                 acquired_clip = clip_file
+                registry.register_asset(clip_file, "motion_graphic", "video", topic, niche_name, episode_id)
 
         # 2. Hero Scene or AI_GENERATIVE designated shot -> ComfyUI SDXL
         if not acquired_clip:
@@ -180,15 +185,16 @@ def harvest_unique_timeline(
                     image_to_cinematic_clip(img_file, clip_file, duration=shot_dur, preset_index=idx)
                     if os.path.exists(clip_file):
                         acquired_clip = clip_file
+                        registry.register_asset(img_file, "sdxl", "image", topic, niche_name, episode_id)
 
-        # 3. Pexels HD Vertical Video Search (Strict Unique Asset Enforcement)
+        # 3. Pexels HD Vertical Video Search with Candidate Ranking
         if not acquired_clip:
             search_query = getattr(shot_obj, "search_query", None) or f"{topic} {scene_text[:25]}"
             candidate_queries = [
                 search_query,
                 f"{topic} cinematic",
                 scene_text[:35],
-                f"{profile['niche']['name']} documentary",
+                f"{niche_name} documentary",
                 f"{topic} drone"
             ]
 
@@ -209,43 +215,65 @@ def harvest_unique_timeline(
                         video_aspect=aspect,
                         negative_keywords=profile_negatives
                     )
+                    # Candidate Ranking: score each asset against persistent registry
+                    scored_candidates = []
                     for item in items:
-                        if item.url not in used_asset_keys:
-                            dl_path = material.save_video(item.url, save_dir=task_dir)
-                            if dl_path and os.path.exists(dl_path) and os.path.getsize(dl_path) > 10000:
-                                used_asset_keys.add(item.url)
-                                # Trim and scale exactly to shot_dur via FFmpeg
+                        c_score = registry.score_candidate(
+                            item.url,
+                            niche=niche_name,
+                            episode_id=episode_id,
+                            active_episode_keys=used_asset_keys
+                        )
+                        if c_score > 0.0:
+                            scored_candidates.append((c_score, item))
+
+                    # Sort highest quality/freshness score first
+                    scored_candidates.sort(key=lambda x: x[0], reverse=True)
+
+                    for c_score, item in scored_candidates:
+                        dl_path = material.save_video(item.url, save_dir=task_dir)
+                        if dl_path and os.path.exists(dl_path) and os.path.getsize(dl_path) > 10000:
+                            used_asset_keys.add(item.url)
+                            registry.register_asset(
+                                item.url,
+                                provider="pexels",
+                                media_type="video",
+                                topic=topic,
+                                niche=niche_name,
+                                episode_id=episode_id
+                            )
+                            # Trim and scale exactly to shot_dur via FFmpeg
+                            subprocess.run([
+                                "ffmpeg", "-y", "-ss", "0", "-i", dl_path,
+                                "-t", f"{shot_dur:.3f}",
+                                "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
+                                "-r", "30", "-c:v", "h264_nvenc", "-preset", "p4", "-tune", "hq", "-pix_fmt", "yuv420p",
+                                clip_file
+                            ], capture_output=True, check=False)
+
+                            if not os.path.exists(clip_file) or os.path.getsize(clip_file) == 0:
+                                # Fallback to libx264
+                                if os.path.exists(clip_file):
+                                    try:
+                                        os.remove(clip_file)
+                                    except OSError:
+                                        pass
                                 subprocess.run([
                                     "ffmpeg", "-y", "-ss", "0", "-i", dl_path,
                                     "-t", f"{shot_dur:.3f}",
                                     "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
-                                    "-r", "30", "-c:v", "h264_nvenc", "-preset", "p4", "-tune", "hq", "-pix_fmt", "yuv420p",
+                                    "-r", "30", "-c:v", "libx264", "-pix_fmt", "yuv420p",
                                     clip_file
                                 ], capture_output=True, check=False)
 
-                                if not os.path.exists(clip_file) or os.path.getsize(clip_file) == 0:
-                                    # Fallback to libx264
-                                    if os.path.exists(clip_file):
-                                        try:
-                                            os.remove(clip_file)
-                                        except OSError:
-                                            pass
-                                    subprocess.run([
-                                        "ffmpeg", "-y", "-ss", "0", "-i", dl_path,
-                                        "-t", f"{shot_dur:.3f}",
-                                        "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
-                                        "-r", "30", "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                                        clip_file
-                                    ], capture_output=True, check=False)
-
-                                if os.path.exists(clip_file) and os.path.getsize(clip_file) > 0:
-                                    acquired_clip = clip_file
-                                    print(f"  ✓ Scene {idx+1}/{len(scenes)} [STOCK]: Pexels HD Video for '{clean_q}' ({shot_dur:.2f}s)")
-                                    break
+                            if os.path.exists(clip_file) and os.path.getsize(clip_file) > 0:
+                                acquired_clip = clip_file
+                                print(f"  ✓ Scene {idx+1}/{len(scenes)} [STOCK (score {c_score:.2f})]: Pexels HD Video for '{clean_q}' ({shot_dur:.2f}s)")
+                                break
                     if acquired_clip:
                         break
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"[Cinema Engine] Pexels search error for '{clean_q}': {e}")
 
         # 4. Universal Fallback: ComfyUI SDXL bespoke scene generation
         if not acquired_clip:
@@ -294,33 +322,37 @@ def assemble_final_nvenc_video(
     concat_txt = os.path.join(output_dir, "ffmpeg_concat.txt")
     valid_clips = [c for c in clip_files if os.path.exists(c) and os.path.getsize(c) > 0]
 
-    # Calculate audio duration
+    # Calculate audio duration accurately with ffprobe
     audio_dur = 0.0
     try:
         probe_cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", audio_file]
         probe_res = subprocess.run(probe_cmd, capture_output=True, text=True, check=False)
         audio_dur = float(probe_res.stdout.strip())
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[Cinema Engine] Could not probe audio duration for {audio_file}: {e}")
 
-    # Guarantee video stream covers 100% of audio duration (Zero black frames from beginning to end)
+    # Guarantee video stream covers 100% of audio duration without timeline drift
     concat_list = list(valid_clips)
     if audio_dur > 0 and valid_clips:
-        total_clip_dur = 0.0
+        clip_durations = {}
         for clip in valid_clips:
+            dur = 0.0
             try:
                 c_cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", clip]
                 c_res = subprocess.run(c_cmd, capture_output=True, text=True, check=False)
-                total_clip_dur += float(c_res.stdout.strip())
-            except Exception:
-                total_clip_dur += 3.0
+                dur = float(c_res.stdout.strip())
+            except Exception as e:
+                logger.debug(f"[Cinema Engine] ffprobe failed for clip {os.path.basename(clip)}: {e}")
+                dur = 3.0
+            clip_durations[clip] = max(dur, 0.5)
 
+        total_clip_dur = sum(clip_durations.values())
+        clip_idx = 0
         while total_clip_dur < audio_dur:
-            for clip in valid_clips:
-                concat_list.append(clip)
-                total_clip_dur += 3.0
-                if total_clip_dur >= audio_dur:
-                    break
+            clip = valid_clips[clip_idx % len(valid_clips)]
+            concat_list.append(clip)
+            total_clip_dur += clip_durations[clip]
+            clip_idx += 1
 
     with open(concat_txt, "w", encoding="utf-8") as f:
         for clip in concat_list:

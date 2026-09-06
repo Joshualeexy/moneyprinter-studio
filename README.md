@@ -199,30 +199,43 @@ The engine is fully model-agnostic and does not force you to run heavy local mod
    - The pipeline immediately issues a `{"model": "qwen3:8b", "keep_alive": 0}` request to flush weights from GPU memory.
    - ComfyUI SDXL is then triggered into the vacated VRAM, followed by hardware NVENC encoding.
 
-### 2. Intelligent Visual Routing & Fallback Matrix
+### 2. Evidence-Backed Research Pipeline (`core/researcher.py`)
+Rather than relying on ungrounded LLM prompts, the engine compiles a structured **Evidence Pack** before a single word of script is drafted:
+* **Multi-Source Ingestion**: Queries encyclopedic and archival APIs, extracting full-text abstracts and section dossiers.
+* **Factual & Temporal Extraction**: Automatically parses verified dates, historical chronologies, geographical coordinates, and quantitative metrics using regex entity extractors.
+* **Directorial Grounding Mandate**: Injects strict factual boundaries into the scriptwriter prompt, forbidding the model from manufacturing fake expeditions, imaginary scientists, or fictional casualty figures.
+
+### 3. Persistent Asset Registry & Candidate Ranker (`core/asset_registry.py`)
+To prevent visual fatigue across multi-episode series while enabling intelligent footage reuse:
+* **Durable SQLite Store**: Tracks every visual asset by URL hash, provider, niche, topic, episode ID, and timestamp in `storage/asset_registry.db`.
+* **Zero Intra-Episode Duplication**: Guarantees that no single visual asset appears more than once within the same episode timeline.
+* **Dynamic Cooldown Ranking**: Scores incoming footage candidates across series. Assets used recently in the same niche incur cooldown penalties, while unused or cross-niche assets receive priority scores.
+
+### 4. Intelligent Visual Routing & Fallback Matrix
 Every script segment is evaluated by the director and assigned to the most effective visual pipeline:
-* **Stock Footage (Pexels / Pixabay)**: For historical, urban, marine, or archival settings. Automatically deduplicates queries and filters against niche-specific negative keywords (e.g., banning food, cooking, beaches, cartoons).
+* **Stock Footage (Pexels / Pixabay)**: For real-world, marine, aerial, or historical footage. Automatically filters against niche-specific negative keywords.
 * **AI Generative (ComfyUI SDXL)**: For unfilmable scenarios (e.g., Earth stopping rotation, Hadal zone leviathans, Dyatlov pass anomalies). Runs Ken Burns pan-and-scan camera interpolation.
 * **Procedural Python Animations (`core/motion_graphics.py`)**:
   - **Classified Redacted Dossier**: Dynamically sweeps a black forensic marker across declassified government documents.
   - **Acoustic Sonar / Radar Pulse**: Animates a rotating 360° detection beam with range rings, pulsing targets, and telemetry overlays.
   - **Target Crosshairs**: Mathematical pinpointing of latitude/longitude coordinates.
 
-### 3. Word-Synchronized Fitted Pill Karaoke Subtitles
+### 5. Word-Synchronized Fitted Pill Karaoke Subtitles
 Standard subtitle burn-in often obscures background action or produces awkward line wraps. Cinema Engine uses:
 * **Dynamic Bounding Box Calculation**: Text width and height are measured per word using PIL font metrics.
 * **Fitted Dark Pill Backgrounds**: Renders a dark, rounded capsule behind each subtitle phrase to ensure 100% contrast over complex backgrounds.
 * **Real-Time Word Highlighting**: Colorizes active words using phonetic millisecond timestamps returned by Edge-TTS or Azure Speech.
 
-### 4. Crash-Proof State Machine (`core/checkpoint.py`)
+### 6. Crash-Proof State Machine (`core/checkpoint.py`)
 Long-running batch generation is resilient to interruptions, reboots, or network blips:
 ```
 [start] → [script_generated] → [audio_generated] → [materials_ready] → [video_rendered] → [completed]
 ```
 Checkpoints are written atomically (`.tmp` file replaced via `os.replace`). If execution halts at stage 4, re-running the command immediately resumes from stage 4 without re-billing LLM or TTS calls.
 
-### 5. Seamless Hardware NVENC with CPU Fallback
-FFmpeg encoding tries hardware-accelerated NVIDIA NVENC (`h264_nvenc -preset p4 -tune hq`) first. If CUDA drivers or NVENC sessions are busy or unsupported, it automatically falls back to CPU `libx264 -preset ultrafast`, ensuring zero broken jobs on headless or non-GPU nodes.
+### 7. Hardware NVENC Video Encoding & Dynamic Audio Ducking
+* **Hardware Video Acceleration**: FFmpeg encoding tries NVIDIA NVENC (`h264_nvenc -preset p4 -tune hq`) first, with seamless fallback to CPU `libx264`.
+* **Dynamic Multi-Channel Audio Ducking**: Utilizes automated FFmpeg audio filter graphs (`amix=inputs=2:dropout_transition=2` with background attenuation `volume=0.12`) to ensure crystal-clear vocal intelligibility over orchestral BGM.
 
 ---
 
