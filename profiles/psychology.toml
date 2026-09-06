@@ -5,10 +5,10 @@ description = "Declassified behavioral experiments, psychological paradoxes, and
 language = "en"
 
 [video_target]
-min_duration = 50.0
-max_duration = 60.0
-min_words = 115
-max_words = 130
+min_duration = 62.0
+max_duration = 75.0
+min_words = 170
+max_words = 195
 
 [series]
 enabled = true

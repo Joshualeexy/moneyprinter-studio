@@ -230,7 +230,7 @@ else
 fi
 
 # ── 6. Setup Global CLI Commands ──────────────────────────────────────────────
-log_info "Step 6/6: Installing global CLI commands ('cinema-engine' & 'run_worker')..."
+log_info "Step 6/6: Installing global CLI commands ('moneyprinter-studio', 'cinema-engine', 'run_worker')..."
 
 chmod +x "${PROJECT_DIR}/run_worker.sh"
 chmod +x "${PROJECT_DIR}/run_series.py"
@@ -238,17 +238,21 @@ chmod +x "${PROJECT_DIR}/run_infinite_generator.py"
 
 INSTALL_GLOBAL=false
 if [ -d "$HOME/.local/bin" ]; then
+    ln -sf "${PROJECT_DIR}/run_worker.sh" "$HOME/.local/bin/moneyprinter-studio"
+    ln -sf "${PROJECT_DIR}/run_worker.sh" "$HOME/.local/bin/moneyprinter"
     ln -sf "${PROJECT_DIR}/run_worker.sh" "$HOME/.local/bin/cinema-engine"
     ln -sf "${PROJECT_DIR}/run_worker.sh" "$HOME/.local/bin/run_worker"
     INSTALL_GLOBAL=true
 elif [ -d "/usr/local/bin" ] && [ -w "/usr/local/bin" ]; then
+    ln -sf "${PROJECT_DIR}/run_worker.sh" "/usr/local/bin/moneyprinter-studio"
+    ln -sf "${PROJECT_DIR}/run_worker.sh" "/usr/local/bin/moneyprinter"
     ln -sf "${PROJECT_DIR}/run_worker.sh" "/usr/local/bin/cinema-engine"
     ln -sf "${PROJECT_DIR}/run_worker.sh" "/usr/local/bin/run_worker"
     INSTALL_GLOBAL=true
 fi
 
 if [ "$INSTALL_GLOBAL" = true ]; then
-    log_success "Installed global commands: 'cinema-engine' and 'run_worker'"
+    log_success "Installed global commands: 'moneyprinter-studio', 'moneyprinter', 'cinema-engine' and 'run_worker'"
 else
     log_warn "Could not link to ~/.local/bin. You can run './run_worker.sh' directly."
 fi
@@ -256,7 +260,7 @@ fi
 # ── Finished ──────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}${BOLD}================================================================${NC}"
-echo -e "${GREEN}${BOLD}   🎬 Installation Complete! Cinema Engine is Ready to Run!     ${NC}"
+echo -e "${GREEN}${BOLD}   🎬 Installation Complete! MoneyPrinter Studio is Ready!      ${NC}"
 echo -e "${GREEN}${BOLD}================================================================${NC}"
 echo ""
 echo -e "Quickstart Options:"

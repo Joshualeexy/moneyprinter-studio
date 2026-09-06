@@ -209,7 +209,7 @@ If a claim is disputed or fringe, frame it clearly ("Some researchers believe...
    - Do not force a fake resolution. The strongest ending is an unsettling unanswered contradiction that loops back to the original mystery question.
 
 ## ABSOLUTE CONSTRAINTS:
-- Exact Spoken Word Count: Strictly between {min_w} and {max_w} words (calibrated for exactly 50 to 58 seconds of high-retention narration).
+- Exact Spoken Word Count: Strictly between {min_w} and {max_w} words (calibrated for strictly 62 to 75 seconds of high-retention narration).
 - Banned Clichés: Absolutely NEVER use {banned_str} or phrases like "in this video", "have you ever wondered", "dive into", "let's explore".
 - Spoken Audio Only: Zero markdown asterisks, no headers, no quotation marks, no narrator tags, no bracketed notes.
 """
@@ -266,14 +266,14 @@ def generate_niche_script(profile: dict, topic: str, research_context: str = "")
     script = re.sub(r'(?:Narrator|Voiceover|Audio|Host)\s*:\s*', '', script, flags=re.IGNORECASE)
 
     target_cfg = profile.get("video_target", {})
-    min_w = target_cfg.get("min_words", 115)
-    max_w = target_cfg.get("max_words", 130)
+    min_w = target_cfg.get("min_words", 170)
+    max_w = target_cfg.get("max_words", 195)
     word_count = len(script.split())
 
-    # Mandatory expansion loop: enforce strictly 50-60 second duration
+    # Mandatory expansion loop: enforce strictly 62-75 second duration
     if word_count < min_w:
-        logger.info(f"Draft script is only {word_count} words. Auto-expanding to target {min_w}-{max_w} words for 55s duration...")
-        expand_prompt = f"""You are the Master Documentarian. The draft script below is only {word_count} words, which is too short for a 50-60 second documentary.
+        logger.info(f"Draft script is only {word_count} words. Auto-expanding to target {min_w}-{max_w} words for 65s+ duration...")
+        expand_prompt = f"""You are the Master Documentarian. The draft script below is only {word_count} words, which is too short for a 65-second documentary.
 Expand this script to strictly between {min_w} and {max_w} words by enriching it with the BUT escalation rule and natural spoken cadence.
 
 Draft Script:
