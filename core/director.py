@@ -16,7 +16,24 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
 from loguru import logger
+from app.config import config
 from app.services import llm
+
+
+def _get_llm_config(profile: dict) -> dict:
+    app_cfg = dict(config.app)
+    llm_cfg = profile.get("llm", {}) if profile else {}
+    provider = llm_cfg.get("provider", "ollama").lower()
+    model = llm_cfg.get("model", "qwen3-coder-agent:latest")
+    app_cfg["llm_provider"] = provider
+    if provider == "ollama":
+        app_cfg["ollama_model_name"] = model
+        if not app_cfg.get("ollama_base_url"):
+            app_cfg["ollama_base_url"] = "http://127.0.0.1:11434/v1"
+    else:
+        app_cfg[f"{provider}_model_name"] = model
+    return app_cfg
+
 
 
 @dataclass
@@ -69,23 +86,31 @@ For EACH of the {total_shots} sequential shots in the script, you must direct:
 
 Return a JSON array of {total_shots} objects. Return ONLY raw valid JSON."""
 
-        from worker import _get_llm_config
         app_cfg = dict(_get_llm_config(self.profile))
-        director_model = self.profile.get("llm", {}).get("director_model", "qwen3:8b")
-        if "qwen" in director_model.lower():
-            app_cfg["llm_provider"] = "ollama"
-            app_cfg["ollama_model_name"] = director_model
-        logger.info(f"[Movie Director] Planning storyboard via fast lightweight '{director_model}' on {app_cfg.get('llm_provider', 'ollama')}...")
+        provider = app_cfg.get("llm_provider", "deepseek")
+        model = app_cfg.get(f"{provider}_model_name", "deepseek-chat")
+        logger.info(f"[Movie Director] Planning storyboard via '{model}' on {provider}...")
 
-        response = llm._generate_response(prompt, app_config=app_cfg)
+        response = None
+        try:
+            response = llm._generate_response(prompt, app_config=app_cfg)
+        except Exception as e:
+            logger.warning(f"[Movie Director] Primary LLM failed: {e}")
 
-        # Immediately offload director model so 100% of GPU VRAM is free for ComfyUI SDXL
+        if not response or response.startswith("Error:"):
+            logger.info("[Movie Director] Falling back to local Ollama (qwen3:8b)...")
+            fallback_cfg = dict(app_cfg)
+            fallback_cfg["llm_provider"] = "ollama"
+            fallback_cfg["ollama_model_name"] = "qwen3:8b"
+            fallback_cfg["ollama_base_url"] = "http://127.0.0.1:11434/v1"
+            response = llm._generate_response(prompt, app_config=fallback_cfg)
+
+        # Offload Ollama model from memory if it was used
         try:
             import requests as _req
-            _req.post("http://127.0.0.1:11434/api/generate", json={"model": director_model, "keep_alive": 0}, timeout=5)
-            logger.info(f"[Movie Director] Offloaded '{director_model}' from GPU. VRAM is 100% free for ComfyUI.")
-        except Exception as _off_err:
-            logger.debug(f"[Movie Director] Model offload notice: {_off_err}")
+            _req.post("http://127.0.0.1:11434/api/generate", json={"model": "qwen3:8b", "keep_alive": 0}, timeout=2)
+        except Exception:
+            pass
 
         raw_shots = []
         try:

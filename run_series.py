@@ -3,54 +3,50 @@
 ==============================================================================
 Autonomous Niche Video Series Runner (run_series.py)
 ==============================================================================
-Generates a complete multi-episode video series sequentially across any niche.
+Generates multi-episode video series sequentially or endlessly across any niche.
 Handles research, 30.5B scriptwriting, 8B movie directing, ComfyUI SDXL scenes,
-and hardware NVENC video rendering for every episode in the arc.
+hardware NVENC video rendering, and infinite dynamic AI topic brainstorming.
 ==============================================================================
 """
 
 import argparse
 import json
+import re
 import sys
 import time
 from pathlib import Path
+from loguru import logger
 
+from app.services import llm
 from core.profile_loader import load_profile
-from worker import run_worker_pipeline
+from worker import _get_llm_config, run_worker_pipeline
 
 
-def run_series(profile_name: str, count: int = 5):
-    profile = load_profile(profile_name)
-    niche_slug = profile["niche"]["slug"]
-    series_cfg = profile.get("series", {})
-    arc_title = series_cfg.get("current_arc", f"{profile['niche']['name']} Series")
-    
-    # Get pre-configured episodes or defaults
-    episodes = series_cfg.get("episodes", [])
-    if len(episodes) < count:
-        default_episodes = [
-            f"Mystery {i+1} of {arc_title}" for i in range(count)
-        ]
-        episodes = (episodes + default_episodes)[:count]
-    else:
-        episodes = episodes[:count]
+def _norm_topic(t: str) -> str:
+    """Normalize topic strings for collision-free comparison."""
+    return re.sub(r"[^a-z0-9]", "", str(t).lower())
 
-    print("\n" + "=" * 65)
-    print(f" 🎬 LAUNCHING {count}-EPISODE SERIES: [{niche_slug.upper()}]")
-    print(f" Arc: {arc_title}")
-    print("=" * 65)
-    for i, ep in enumerate(episodes, 1):
-        print(f"  {i}. {ep}")
-    print("=" * 65 + "\n")
 
-    completed_episodes = []
-
-    # Scan existing output archive to detect already finished episodes
+def get_niche_archive_info(niche_slug: str):
+    """
+    Scans output/{niche_slug} and returns:
+      - dict of existing topics (lowercase -> metadata)
+      - max episode number found in folder names (e.g. 05_... -> 5)
+    """
     niche_out_dir = Path("output") / niche_slug
-    existing_topics = {}
+    existing = {}
+    max_ep_num = 0
     if niche_out_dir.exists():
         for d in niche_out_dir.iterdir():
             if d.is_dir():
+                m = re.match(r"^(\d+)_", d.name)
+                if m:
+                    try:
+                        ep_val = int(m.group(1))
+                        if ep_val > max_ep_num:
+                            max_ep_num = ep_val
+                    except ValueError:
+                        pass
                 meta_file = d / "metadata.json"
                 if meta_file.exists():
                     try:
@@ -59,77 +55,173 @@ def run_series(profile_name: str, count: int = 5):
                             t_name = m_data.get("topic", "").strip()
                             v_path = m_data.get("file_path", "")
                             if t_name and Path(v_path).exists() and Path(v_path).stat().st_size > 1024 * 1024:
-                                existing_topics[t_name.lower()] = m_data
+                                existing[t_name.lower()] = m_data
                     except Exception:
                         pass
+    return existing, max(max_ep_num, len(existing))
 
-    for idx, episode_topic in enumerate(episodes, 1):
-        print("\n" + "#" * 65)
-        print(f"  EPISODE {idx}/{count}: {episode_topic}")
-        print("#" * 65)
 
-        # Smart Resumption: Skip already rendered episodes
-        if episode_topic.lower() in existing_topics:
-            prev_meta = existing_topics[episode_topic.lower()]
-            print(f"  ⚡ Episode {idx} already rendered and archived: '{prev_meta.get('title', episode_topic)}'")
-            print(f"     Video: {prev_meta.get('file_path')}")
-            print(f"     Skipping directly to next episode in arc!")
-            completed_episodes.append({
-                "episode": idx,
-                "topic": episode_topic,
-                "title": prev_meta.get("title", episode_topic),
-                "duration": prev_meta.get("duration_seconds", 0),
-                "size_mb": prev_meta.get("file_size_mb", 0),
-                "video_path": prev_meta.get("file_path", ""),
-                "thumbnail_path": prev_meta.get("thumbnail_file", ""),
-                "elapsed_seconds": 0
-            })
-            continue
+def generate_dynamic_niche_topic(profile: dict, existing_topics: list) -> str:
+    """
+    Brainstorms a brand new, factual, viral documentary topic using AI.
+    Guarantees endless continuous generation without hitting topic limits.
+    """
+    niche_name = profile["niche"]["name"]
+    niche_desc = profile["niche"]["description"]
+    current_arc = profile.get("series", {}).get("current_arc", f"{niche_name} Mysteries")
+    tone = profile.get("persona", {}).get("tone", "suspenseful investigative documentary")
 
-        start_time = time.time()
+    covered_sample = [t for t in existing_topics if t][-25:]
+    covered_str = "\n".join(f"- {t}" for t in covered_sample) if covered_sample else "None yet"
+
+    prompt = f"""You are the Executive Producer for high-retention viral documentary shorts.
+Niche: {niche_name} ({niche_desc})
+Series Arc: {current_arc}
+Tone: {tone}
+
+The following topics have ALREADY been produced and MUST NOT be repeated:
+{covered_str}
+
+Brainstorm exactly ONE brand new, real, fascinating, and mysterious documentary topic suitable for a 50-60 second short.
+It must focus on a specific anomaly, declassified event, mysterious artifact, or shocking historical paradox.
+Return ONLY the topic title (5 to 10 words). No quotes, no markdown, no punctuation at the end, no commentary."""
+
+    app_cfg = _get_llm_config(profile)
+    resp = None
+    for attempt in range(3):
         try:
-            run_worker_pipeline(
-                profile_path=profile_name,
-                topic_override=episode_topic,
-                clear_state=True,
-                episode_num=idx
-            )
+            r = llm._generate_response(prompt, app_config=app_cfg)
+            if r and not r.startswith("Error:"):
+                resp = r
+                break
+            time.sleep(1)
+        except Exception:
+            time.sleep(1)
 
-            # Find the most recently created folder in output/{niche_slug}
-            niche_out_dir = Path("output") / niche_slug
-            if niche_out_dir.exists():
-                task_dirs = sorted([d for d in niche_out_dir.iterdir() if d.is_dir()], key=lambda d: d.stat().st_mtime, reverse=True)
-                if task_dirs:
-                    latest_dir = task_dirs[0]
-                    meta_file = latest_dir / "metadata.json"
-                    if meta_file.exists():
-                        with open(meta_file, "r", encoding="utf-8") as f:
-                            meta = json.load(f)
-                            completed_episodes.append({
-                                "episode": idx,
-                                "topic": episode_topic,
-                                "title": meta.get("title", episode_topic),
-                                "duration": meta.get("duration_seconds", 0),
-                                "size_mb": meta.get("file_size_mb", 0),
-                                "video_path": meta.get("file_path", ""),
-                                "thumbnail_path": meta.get("thumbnail_file", ""),
-                                "elapsed_seconds": int(time.time() - start_time)
-                            })
-        except Exception as e:
-            print(f"\n❌ Episode {idx} failed: {e}")
-            continue
+    # Local Ollama fallback if cloud LLM is unreachable
+    if not resp or resp.startswith("Error:"):
+        fallback_cfg = dict(app_cfg)
+        fallback_cfg["llm_provider"] = "ollama"
+        fallback_cfg["ollama_model_name"] = "qwen3:8b"
+        fallback_cfg["ollama_base_url"] = "http://127.0.0.1:11434/v1"
+        resp = llm._generate_response(prompt, app_config=fallback_cfg)
 
-    # Final Series Summary Card
+    clean = (resp or "").strip().strip("\"'\"'*`")
+    clean = re.sub(r"^(Topic:|\d+\.|\-)\s*", "", clean)
+    clean = re.sub(r"[\r\n]+.*", "", clean).strip()
+    return clean or f"The Hidden Paradox of {niche_name}"
+
+
+def run_next_niche_episode(profile_name: str) -> dict:
+    """
+    Renders the single next sequential episode for a given niche profile:
+      1. Renders any unrendered pre-configured episode from series.episodes
+      2. If all pre-configured episodes are finished, autonomously brainstorms
+         a fresh viral topic via AI with sequential numbering (06_, 07_, 400_...)
+    """
+    profile = load_profile(profile_name)
+    niche_slug = profile["niche"]["slug"]
+    series_cfg = profile.get("series", {})
+    arc_title = series_cfg.get("current_arc", f"{profile['niche']['name']} Series")
+    preconfigured = series_cfg.get("episodes", [])
+
+    existing_topics, max_ep_num = get_niche_archive_info(niche_slug)
+    norm_existing = {_norm_topic(k) for k in existing_topics.keys()}
+
+    # 1. Look for next unrendered preconfigured episode
+    chosen_topic = None
+    chosen_ep_num = None
+
+    for idx, ep in enumerate(preconfigured, 1):
+        if _norm_topic(ep) not in norm_existing:
+            chosen_topic = ep
+            # If this index is already occupied on disk, advance to next free index
+            chosen_ep_num = idx if idx > max_ep_num else max_ep_num + 1
+            break
+
+    # 2. If all preconfigured episodes are done, brainstorm a dynamic one
+    if not chosen_topic:
+        print(f"  ⚡ [{niche_slug.upper()}] All {len(preconfigured)} initial arc episodes rendered.")
+        print(f"  🧠 Autonomously generating brand new viral topic via AI...")
+        chosen_topic = generate_dynamic_niche_topic(profile, list(existing_topics.keys()))
+        chosen_ep_num = max_ep_num + 1
+
+    print("\n" + "#" * 65)
+    print(f"  🎬 [{niche_slug.upper()}] EPISODE {chosen_ep_num}: {chosen_topic}")
+    print(f"  Arc: {arc_title}")
+    print("#" * 65 + "\n")
+
+    start_time = time.time()
+    run_worker_pipeline(
+        profile_path=profile_name,
+        topic_override=chosen_topic,
+        clear_state=True,
+        episode_num=chosen_ep_num
+    )
+
+    # Find the newly created folder in output/{niche_slug}
+    niche_out_dir = Path("output") / niche_slug
+    if niche_out_dir.exists():
+        task_dirs = sorted([d for d in niche_out_dir.iterdir() if d.is_dir()], key=lambda d: d.stat().st_mtime, reverse=True)
+        if task_dirs:
+            latest_dir = task_dirs[0]
+            meta_file = latest_dir / "metadata.json"
+            if meta_file.exists():
+                try:
+                    with open(meta_file, "r", encoding="utf-8") as f:
+                        meta = json.load(f)
+                        meta["elapsed_seconds"] = int(time.time() - start_time)
+                        meta["episode"] = chosen_ep_num
+                        return meta
+                except Exception:
+                    pass
+
+    return {
+        "episode": chosen_ep_num,
+        "topic": chosen_topic,
+        "elapsed_seconds": int(time.time() - start_time)
+    }
+
+
+def run_series(profile_name: str, count: int = 5):
+    """Runs a series of episodes up to count, generating fresh topics if needed."""
+    profile = load_profile(profile_name)
+    niche_slug = profile["niche"]["slug"]
+    series_cfg = profile.get("series", {})
+    arc_title = series_cfg.get("current_arc", f"{profile['niche']['name']} Series")
+
     print("\n" + "=" * 65)
-    print(f" 🎉 SERIES COMPLETE: {len(completed_episodes)}/{count} EPISODES READY")
+    print(f" 🎬 LAUNCHING {count}-EPISODE SERIES: [{niche_slug.upper()}]")
+    print(f" Arc: {arc_title}")
+    print("=" * 65 + "\n")
+
+    completed_episodes = []
+
+    for _ in range(count):
+        existing_topics, _ = get_niche_archive_info(niche_slug)
+        if len(existing_topics) >= count:
+            print(f"  ✓ Target of {count} episodes already achieved for [{niche_slug.upper()}].")
+            break
+
+        try:
+            meta = run_next_niche_episode(profile_name)
+            if meta:
+                completed_episodes.append(meta)
+        except Exception as e:
+            print(f"\n❌ Episode failed: {e}")
+            break
+
+    # Summary Card
+    print("\n" + "=" * 65)
+    print(f" 🎉 BATCH COMPLETE: {len(completed_episodes)} EPISODES PRODUCED")
     print(f" Niche: {profile['niche']['name']} | Arc: {arc_title}")
     print("=" * 65)
     for ep in completed_episodes:
-        print(f"\n[Episode {ep['episode']}] {ep['title']}")
-        print(f"  • Subject:   {ep['topic']}")
-        print(f"  • Duration:  {ep['duration']}s | Size: {ep['size_mb']} MB")
-        print(f"  • Video:     {ep['video_path']}")
-        print(f"  • Thumbnail: {ep['thumbnail_path']}")
+        print(f"\n[Episode {ep.get('episode')}] {ep.get('title', ep.get('topic'))}")
+        print(f"  • Subject:   {ep.get('topic')}")
+        print(f"  • Duration:  {ep.get('duration_seconds', 0)}s | Size: {ep.get('file_size_mb', 0)} MB")
+        print(f"  • Video:     {ep.get('file_path', '')}")
+        print(f"  • Thumbnail: {ep.get('thumbnail_file', '')}")
     print("=" * 65 + "\n")
 
 

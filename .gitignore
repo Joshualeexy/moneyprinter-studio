@@ -1,49 +1,79 @@
+# ==============================================================================
+# Git Ignore Configuration - Autonomous Niche Cinema Engine
+# ==============================================================================
+
+# Operating System & IDE Files
 .DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Environment & Configuration Secrets (NEVER COMMIT)
+config.toml
+config.toml.bak
 /config.toml
 /config.toml.bak
-/storage/
-/.idea/
-/app/services/__pycache__
-/app/__pycache__/
-/app/config/__pycache__/
-/app/models/__pycache__/
-/app/utils/__pycache__/
-/*/__pycache__/*
-.vscode
-/**/.streamlit
-__pycache__
-logs/
+.env
+.env.*
+*.env
+*.pem
+*.key
 
-node_modules
-# VuePress 默认临时文件目录
-/sites/docs/.vuepress/.temp
-# VuePress 默认缓存目录
-/sites/docs/.vuepress/.cache
-# VuePress 默认构建生成的静态文件目录
-/sites/docs/.vuepress/dist
-# 模型目录
-/models/
-./models/*
-
-venv/
-.venv
-
-# Debug and test files
-CLAUDE.md
-debug/
-debug_*.py
-test_*.py
-!test/services/test_*.py
-!test/test_*.py
-streamlit.log
+# Python Bytecode & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+app/**/__pycache__/
+core/**/__pycache__/
+test/**/__pycache__/
+.pytest_cache/
 .coverage
 coverage.xml
-output/
-pipeline_state*.json
 htmlcov/
-.codegraph
-/docs/superpowers
-.understand-anything
+venv/
+.venv/
+
+# Video & Render Outputs (Strictly Excluded - NEVER COMMIT)
+output/
+/output/
+storage/
+/storage/
+test_202*
+test_runs/
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.wmv
+*.flv
+*.webm
+*.ts
+*.wav
+
+# Whitelist bundled audio and fonts in repository
+!resource/songs/*.mp3
+!resource/fonts/*.ttf
+
+# Pipeline Checkpoints & Runtime Logs
+pipeline_state*.json
 pipeline_debug.log
 infinite_pipeline.log
 *.log
+logs/
+streamlit.log
+
+# Temporary & Cache Dirs
+node_modules/
+/models/
+./models/*
+CLAUDE.md
+debug/
+debug_*.py
+.codegraph
+/docs/superpowers
+.understand-anything
+/sites/docs/.vuepress/.temp
+/sites/docs/.vuepress/.cache
+/sites/docs/.vuepress/dist

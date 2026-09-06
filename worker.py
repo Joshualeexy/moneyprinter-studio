@@ -235,10 +235,29 @@ def generate_niche_script(profile: dict, topic: str, research_context: str = "")
     prompt = build_system_script_prompt(profile, topic, research_context)
     app_cfg = _get_llm_config(profile)
     model_name = app_cfg.get("ollama_model_name") or profile.get("llm", {}).get("model", "qwen3-coder-agent:latest")
-    logger.info(f"Generating research-grounded script for '{topic}' via {model_name}...")
-    response = llm._generate_response(prompt, app_config=app_cfg)
+    response = None
+    for attempt in range(1, 4):
+        try:
+            response = llm._generate_response(prompt, app_config=app_cfg)
+            if response and not response.startswith("Error:"):
+                break
+            logger.warning(f"Script generation attempt {attempt}/3 returned: {response}. Retrying in 2s...")
+            time.sleep(2)
+        except Exception as e:
+            logger.warning(f"Script generation attempt {attempt}/3 failed: {e}. Retrying in 2s...")
+            time.sleep(2)
+
+    # Local Ollama fallback if cloud provider is temporarily unreachable
     if not response or response.startswith("Error:"):
-        raise RuntimeError(f"Script generation failed: {response}")
+        logger.warning(f"External LLM unreachable after 3 attempts. Falling back to local Ollama (qwen3:8b)...")
+        fallback_cfg = dict(app_cfg)
+        fallback_cfg["llm_provider"] = "ollama"
+        fallback_cfg["ollama_model_name"] = "qwen3:8b"
+        fallback_cfg["ollama_base_url"] = "http://127.0.0.1:11434/v1"
+        response = llm._generate_response(prompt, app_config=fallback_cfg)
+
+    if not response or response.startswith("Error:"):
+        raise RuntimeError(f"Script generation failed after retries and fallback: {response}")
 
     script = response.strip()
     script = re.sub(r'\[.*?\]|\(.*?\)', '', script)

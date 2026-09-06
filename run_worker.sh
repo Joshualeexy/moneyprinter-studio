@@ -8,8 +8,19 @@ set -e
 DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd "$DIR"
 
-export IMAGEIO_FFMPEG_EXE=/usr/bin/ffmpeg
-VENV_PYTHON="${DIR}/.venv/bin/python"
+if command -v ffmpeg >/dev/null 2>&1; then
+    export IMAGEIO_FFMPEG_EXE="$(command -v ffmpeg)"
+elif [ -f "/usr/bin/ffmpeg" ]; then
+    export IMAGEIO_FFMPEG_EXE="/usr/bin/ffmpeg"
+fi
+
+if [ -f "${DIR}/.venv/bin/python" ]; then
+    VENV_PYTHON="${DIR}/.venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+    VENV_PYTHON="$(command -v python3)"
+else
+    VENV_PYTHON="python"
+fi
 
 # Colors
 GREEN='\033[0;32m'
@@ -20,7 +31,7 @@ NC='\033[0m'
 
 show_banner() {
     echo -e "${BLUE}======================================================${NC}"
-    echo -e "${BLUE}       🎬 Autonomous Niche Video Engine Worker         ${NC}"
+    echo -e "${BLUE}           🎬 MoneyPrinter Studio Worker              ${NC}"
     echo -e "${BLUE}======================================================${NC}"
 }
 

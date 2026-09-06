@@ -1,0 +1,68 @@
+[niche]
+name = "What If Scenarios & Catastrophes"
+slug = "what_if"
+description = "Mind-bending scientific thought experiments, hypothetical planetary catastrophes, and alternate reality physics"
+language = "en"
+
+[video_target]
+min_duration = 50.0
+max_duration = 60.0
+min_words = 115
+max_words = 130
+
+[series]
+enabled = true
+current_arc = "Cataclysmic Hypotheticals: Earth, Physics & The Universe"
+current_episode = 1
+total_episodes = 8
+episodes = [
+    "What If Earth Stopped Spinning for Five Seconds?",
+    "What If the Moon Instantly Disappeared Tomorrow?",
+    "What If the Yellowstone Supervolcano Erupted Today?",
+    "What If All Humans Vanished from Earth at Once?",
+    "What If the Sun Vanished for Exactly Seven Days?",
+    "What If an Asteroid Made of Pure Gold Hit Earth?",
+    "What If Earth Had Saturn's Giant Rings?",
+    "What If the Deepest Ocean Trench Suddenly Drained?"
+]
+
+[llm]
+provider = "deepseek"
+model = "deepseek-chat"
+
+[persona]
+tone = "existential, mind-bending, scientifically grounded, high-stakes hypothetical dread"
+hook_style = "paradox_or_shock"
+banned_phrases = ["in today's video", "dive into", "welcome back", "let's explore", "hit that subscribe button"]
+
+[voice]
+provider = "edge"
+voice_name = "en-US-ChristopherNeural"
+voice_rate = 1.12
+voice_volume = 1.0
+
+[visual]
+aspect_ratio = "9:16"
+source = "pexels"
+clip_duration = 2.8
+transition_mode = "fade"
+concat_mode = "sequential"
+negative_keywords = ["beach", "bikini", "resort", "vacation", "party", "food", "cooking", "meat", "eating", "restaurant", "chef", "shawarma", "kebab", "market", "grill", "dish", "culinary", "kitchen", "recipe", "cartoon"]
+
+[subtitle]
+font_name = "Montserrat-Black.ttf"
+enabled = true
+position = "custom"
+custom_position = 70.0
+font_size = 54
+stroke_width = 4
+color = "#FFFFFF"
+highlight_color = "#00E5FF"
+text_background_color = "#000000"
+rounded_subtitle_background = true
+
+[audio]
+bgm_type = "random"
+bgm_volume = 0.18
+bgm_ducking = true
+bgm_ducking_volume = 0.08

@@ -223,8 +223,13 @@ def harvest_unique_timeline(
                                     clip_file
                                 ], capture_output=True, check=False)
 
-                                if not os.path.exists(clip_file):
+                                if not os.path.exists(clip_file) or os.path.getsize(clip_file) == 0:
                                     # Fallback to libx264
+                                    if os.path.exists(clip_file):
+                                        try:
+                                            os.remove(clip_file)
+                                        except OSError:
+                                            pass
                                     subprocess.run([
                                         "ffmpeg", "-y", "-ss", "0", "-i", dl_path,
                                         "-t", f"{shot_dur:.3f}",
@@ -233,7 +238,7 @@ def harvest_unique_timeline(
                                         clip_file
                                     ], capture_output=True, check=False)
 
-                                if os.path.exists(clip_file):
+                                if os.path.exists(clip_file) and os.path.getsize(clip_file) > 0:
                                     acquired_clip = clip_file
                                     print(f"  ✓ Scene {idx+1}/{len(scenes)} [STOCK]: Pexels HD Video for '{clean_q}' ({shot_dur:.2f}s)")
                                     break
@@ -248,10 +253,23 @@ def harvest_unique_timeline(
             prompt = f"dramatic cinematic shot of {topic}, {scene_text}, 8k, volumetric lighting, national geographic, textless"
             if comfy_available and comfy.generate_scene_image(prompt, img_file):
                 image_to_cinematic_clip(img_file, clip_file, duration=shot_dur, preset_index=idx)
-                if os.path.exists(clip_file):
+                if os.path.exists(clip_file) and os.path.getsize(clip_file) > 0:
                     acquired_clip = clip_file
 
-        if acquired_clip:
+        # 5. Final Fail-Safe: Procedural Atmospheric Ken Burns Canvas
+        if not acquired_clip:
+            print(f"  🎬 Scene {idx+1}/{len(scenes)} [FAIL-SAFE]: Generating Atmospheric Cinematic Motion ({shot_dur:.2f}s)")
+            try:
+                from PIL import Image
+                fallback_img = Image.new("RGB", (1080, 1920), (12, 16, 24))
+                fallback_img.save(img_file, quality=90)
+                image_to_cinematic_clip(img_file, clip_file, duration=shot_dur, preset_index=idx)
+                if os.path.exists(clip_file) and os.path.getsize(clip_file) > 0:
+                    acquired_clip = clip_file
+            except Exception as fe:
+                logger.warning(f"Fail-safe scene render error: {fe}")
+
+        if acquired_clip and os.path.exists(acquired_clip) and os.path.getsize(acquired_clip) > 0:
             cinematic_clips.append(acquired_clip)
         else:
             logger.error(f"Failed to acquire scene {idx+1}")
@@ -270,12 +288,42 @@ def assemble_final_nvenc_video(
 ) -> str:
     """
     Concatenates all unique clips via FFmpeg, ducks BGM, mounts mature bold karaoke subtitles,
-    and renders with hardware NVENC.
+    and renders with hardware NVENC (with seamless CPU libx264 fallback).
     """
     output_dir = os.path.dirname(output_file)
     concat_txt = os.path.join(output_dir, "ffmpeg_concat.txt")
+    valid_clips = [c for c in clip_files if os.path.exists(c) and os.path.getsize(c) > 0]
+
+    # Calculate audio duration
+    audio_dur = 0.0
+    try:
+        probe_cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", audio_file]
+        probe_res = subprocess.run(probe_cmd, capture_output=True, text=True, check=False)
+        audio_dur = float(probe_res.stdout.strip())
+    except Exception:
+        pass
+
+    # Guarantee video stream covers 100% of audio duration (Zero black frames from beginning to end)
+    concat_list = list(valid_clips)
+    if audio_dur > 0 and valid_clips:
+        total_clip_dur = 0.0
+        for clip in valid_clips:
+            try:
+                c_cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", clip]
+                c_res = subprocess.run(c_cmd, capture_output=True, text=True, check=False)
+                total_clip_dur += float(c_res.stdout.strip())
+            except Exception:
+                total_clip_dur += 3.0
+
+        while total_clip_dur < audio_dur:
+            for clip in valid_clips:
+                concat_list.append(clip)
+                total_clip_dur += 3.0
+                if total_clip_dur >= audio_dur:
+                    break
+
     with open(concat_txt, "w", encoding="utf-8") as f:
-        for clip in clip_files:
+        for clip in concat_list:
             f.write(f"file '{os.path.abspath(clip)}'\n")
 
     combined_video = os.path.join(output_dir, "combined_raw.mp4")
@@ -287,17 +335,23 @@ def assemble_final_nvenc_video(
         "-pix_fmt", "yuv420p", combined_video
     ]
     res = subprocess.run(cmd_concat, capture_output=True, text=True, check=False)
-    if res.returncode != 0:
-        cmd_concat[cmd_concat.index("h264_nvenc")] = "libx264"
-        cmd_concat.remove("-preset"); cmd_concat.remove("p4"); cmd_concat.remove("-tune"); cmd_concat.remove("hq")
-        subprocess.run(cmd_concat, capture_output=True, check=False)
+    if res.returncode != 0 or not os.path.exists(combined_video) or os.path.getsize(combined_video) == 0:
+        if os.path.exists(combined_video):
+            try:
+                os.remove(combined_video)
+            except OSError:
+                pass
+        cmd_concat_cpu = [
+            "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_txt,
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", combined_video
+        ]
+        subprocess.run(cmd_concat_cpu, capture_output=True, check=False)
 
     # Step B: Render Mature Bold Karaoke Overlay Images
     karaoke_dir = os.path.join(output_dir, "karaoke_frames")
     os.makedirs(karaoke_dir, exist_ok=True)
 
     # Mount subtitle frames and audio ducking into final render
-    # If BGM is present, duck BGM by 14dB during speech via sidechaincompress or amix
     cmd_final = [
         "ffmpeg", "-y",
         "-i", combined_video,
@@ -321,7 +375,20 @@ def assemble_final_nvenc_video(
         "-shortest", output_file
     ])
 
-    subprocess.run(cmd_final, capture_output=True, text=True, check=False)
+    res_final = subprocess.run(cmd_final, capture_output=True, text=True, check=False)
+    if res_final.returncode != 0 or not os.path.exists(output_file) or os.path.getsize(output_file) == 0:
+        if os.path.exists(output_file):
+            try:
+                os.remove(output_file)
+            except OSError:
+                pass
+        # Fallback to re-encoding if stream copy fails
+        cmd_final_reencode = [
+            "ffmpeg", "-y", "-i", combined_video, "-i", audio_file,
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
+            "-shortest", output_file
+        ]
+        subprocess.run(cmd_final_reencode, capture_output=True, check=False)
 
     # Cleanup temp concat file
     try:

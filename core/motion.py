@@ -58,26 +58,47 @@ def image_to_cinematic_clip(
     vf_string = preset["filter"].format(frames=frames)
 
     ffmpeg_bin = utils.get_ffmpeg_binary()
-    cmd = [
+    cmd_nvenc = [
         ffmpeg_bin, "-y",
         "-loop", "1",
         "-i", image_path,
         "-vf", vf_string,
         "-c:v", "h264_nvenc",
+        "-preset", "p4", "-tune", "hq",
+        "-pix_fmt", "yuv420p",
+        "-t", f"{duration:.2f}",
+        "-r", str(fps),
+        output_clip_path
+    ]
+    cmd_cpu = [
+        ffmpeg_bin, "-y",
+        "-loop", "1",
+        "-i", image_path,
+        "-vf", vf_string,
+        "-c:v", "libx264",
+        "-preset", "ultrafast",
         "-pix_fmt", "yuv420p",
         "-t", f"{duration:.2f}",
         "-r", str(fps),
         output_clip_path
     ]
 
+    # Attempt NVENC first, immediately fall back to libx264 if unavailable
+    success = False
     try:
-        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-    except subprocess.CalledProcessError as e:
-        # Fallback to software libx264 if NVENC fails for any reason
-        logger.warning(f"NVENC motion render failed ({e.stderr.decode('utf-8', errors='ignore')[:120]}), falling back to libx264...")
-        cmd[cmd.index("-c:v") + 1] = "libx264"
-        cmd.extend(["-preset", "ultrafast"])
-        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        res = subprocess.run(cmd_nvenc, capture_output=True, text=True, check=False)
+        if res.returncode == 0 and os.path.exists(output_clip_path) and os.path.getsize(output_clip_path) > 0:
+            success = True
+    except Exception:
+        pass
+
+    if not success:
+        if os.path.exists(output_clip_path):
+            try:
+                os.remove(output_clip_path)
+            except OSError:
+                pass
+        subprocess.run(cmd_cpu, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     if not os.path.exists(output_clip_path) or os.path.getsize(output_clip_path) == 0:
         raise RuntimeError(f"Failed to render cinematic clip for {image_path}")
