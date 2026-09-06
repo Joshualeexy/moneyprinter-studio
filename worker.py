@@ -192,6 +192,7 @@ If a claim is disputed or fringe, frame it clearly ("Some researchers believe...
    - Formula: [Specific Fact] + [Physical Anomaly] + [Unanswered Question].
    - FORBIDDEN TO START WITH DATES OR LOCATIONS: Never open with "August 15th, 1977", "In 1997", "June 2011", or "Point Nemo".
    - Open directly with the anomaly that makes the viewer say "Wait, how is that possible?".
+   - VIRAL INQUIRY ANGLE (RETENTION MULTIPLIER): If the Verified Archival Evidence lists "High-Intent Viral Inquiry Angles", you are STRONGLY ENCOURAGED to adapt or directly answer one of those exact questions as your opening curiosity engine. This immediately captures high-intent viewer curiosity and stops the swipe.
    - Examples of great hooks:
      * "For seventy-two seconds, a telescope heard something from deep space—then it vanished."
      * "A sonar scan mapped a massive geometric shape on the ocean floor, but when the crew dove back down, the target had moved."
@@ -549,7 +550,8 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
                 
                 # Generate viral title & thumbnail concept
                 from core.thumbnail_generator import generate_title_and_thumbnail_concepts
-                thumb_concept = generate_title_and_thumbnail_concepts(script, state["topic"], profile)
+                viral_hooks = research_data.get("viral_hooks", []) if isinstance(research_data, dict) else getattr(research_data, "viral_hooks", [])
+                thumb_concept = generate_title_and_thumbnail_concepts(script, state["topic"], profile, viral_hooks=viral_hooks)
 
                 state.update({
                     "script": script,

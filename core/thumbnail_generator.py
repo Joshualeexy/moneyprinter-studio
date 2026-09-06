@@ -17,16 +17,21 @@ from app.services import llm
 from core.comfy_client import ComfyClient
 
 
-def generate_title_and_thumbnail_concepts(script: str, topic: str, profile: dict) -> dict:
+def generate_title_and_thumbnail_concepts(script: str, topic: str, profile: dict, viral_hooks: list = None) -> dict:
     """
     Generates high-CTR title, thumbnail short text, and ComfyUI SDXL visual prompt
-    anchored strictly to the topic domain and scene context.
+    anchored strictly to the topic domain and scene context, aligned with real viral search inquiries.
     """
+    hooks_context = ""
+    if viral_hooks:
+        hooks_list = "\n".join(f"- \"{h}\"" for h in viral_hooks[:4])
+        hooks_context = f"\nHigh-Intent Search Queries (What Viewers Are Actively Searching):\n{hooks_list}\nYou are strongly encouraged to align the title with one of these high-search-volume queries.\n"
+
     prompt = f"""You are a viral YouTube Shorts and TikTok thumbnail copywriter and creative director.
 Given this video script about '{topic}':
 
 "{script}"
-
+{hooks_context}
 Generate:
 1. "title": A high-CTR viral video title (under 55 characters, curiosity hook, e.g. "What They Found Under Antarctica Terrifies Scientists").
 2. "thumbnail_text": 2 to 4 words MAX for the thumbnail overlay in ALL CAPS (e.g. "DO NOT ENTER", "THEY HID THIS", "IMPOSSIBLE FIND", "BURIED IN ICE"). Must evoke extreme curiosity.

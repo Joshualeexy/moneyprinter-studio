@@ -246,8 +246,7 @@ def save_bgm_upload(filename: str, source: BinaryIO) -> str:
     """
     以分块、限量和原子替换的方式保存用户背景音乐。
 
-    使用场景包括 FastAPI UploadFile 和 Streamlit UploadedFile，两者都提供二进制
-    文件接口。先写同目录临时文件并验证，再通过 os.replace 原子落盘，既能避免
+    先写同目录临时文件并验证，再通过 os.replace 原子落盘，既能避免
     并发上传或进程中断留下半个音频文件，也会让同名上传获得不同的 UUID 存储键，
     已排队或运行中的任务因此始终引用原来的不可变文件。
     """

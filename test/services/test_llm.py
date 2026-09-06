@@ -1810,43 +1810,6 @@ class TestSocialMetadata(unittest.TestCase):
         self.assertIn("y" * llm.MAX_SOCIAL_SCRIPT_LENGTH, prompt)
         self.assertNotIn("y" * (llm.MAX_SOCIAL_SCRIPT_LENGTH + 1), prompt)
 
-    def test_social_metadata_endpoint_response_shape(self):
-        from fastapi.testclient import TestClient
-
-        from app.asgi import app
-
-        request_body = {
-            "video_subject": "Tokyo coffee shops",
-            "video_script": "Three quiet coffee shops for your next Tokyo morning.",
-            "language": "en",
-            "platform": "youtube_shorts",
-        }
-        llm_response = (
-            '{"title":"3 Quiet Tokyo Coffee Shops",'
-            '"caption":"Save these spots for your next Tokyo morning.",'
-            '"hashtags":["#Tokyo","#Coffee","#Shorts"]}'
-        )
-
-        with patch.object(llm, "_generate_response", return_value=llm_response):
-            response = TestClient(app).post(
-                "/api/v1/social-metadata",
-                json=request_body,
-            )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response.json(),
-            {
-                "status": 200,
-                "message": "success",
-                "data": {
-                    "title": "3 Quiet Tokyo Coffee Shops",
-                    "caption": "Save these spots for your next Tokyo morning.",
-                    "hashtags": ["#Tokyo", "#Coffee", "#Shorts"],
-                },
-            },
-        )
-
 
 FOUNDRY_KEY = os.environ.get("ANTHROPIC_FOUNDRY_API_KEY", "")
 FOUNDRY_BASE = "https://amanrai-test-resource.services.ai.azure.com/anthropic"

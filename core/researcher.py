@@ -38,6 +38,7 @@ class EvidencePack:
     temporal_anchors: List[str] = field(default_factory=list)
     key_entities: List[str] = field(default_factory=list)
     context: str = ""
+    viral_hooks: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -48,6 +49,7 @@ class EvidencePack:
             "temporal_anchors": self.temporal_anchors,
             "key_entities": self.key_entities,
             "context": self.context,
+            "viral_hooks": self.viral_hooks,
         }
 
 
@@ -182,9 +184,10 @@ def fetch_topic_research(topic: str) -> Dict[str, str]:
 
     summary_text = full_extract.strip()
 
-    # Step 3: Format Live Web Intelligence Block
+    # Step 3: Format Live Web Intelligence Block & Viral Inquiries
     web_section = ""
     web_claims = []
+    viral_hooks = []
     if web_intel:
         web_items = []
         if web_intel.get("answer_box"):
@@ -196,8 +199,9 @@ def fetch_topic_research(topic: str) -> Dict[str, str]:
                 web_items.append(f"• {r.get('title', '')}: {snip}")
                 web_claims.append(f"{r.get('title', '')} ({snip[:120]})")
         if web_intel.get("people_also_ask"):
-            paa_str = " | ".join(web_intel["people_also_ask"][:3])
-            web_items.append(f"• Related Inquiries: {paa_str}")
+            viral_hooks = [q.strip() for q in web_intel["people_also_ask"] if q.strip()]
+            paa_str = " | ".join(viral_hooks[:4])
+            web_items.append(f"• High-Intent Viewer Inquiries (PAA): {paa_str}")
         if web_items:
             web_section = "### Live Web Intelligence & Discovery Vectors:\n" + "\n".join(web_items) + "\n\n"
 
@@ -218,7 +222,15 @@ def fetch_topic_research(topic: str) -> Dict[str, str]:
 
         wiki_intro = f"### Primary Encyclopedic Subject: {title}\n{summary_text[:600]}...\n\n" if summary_text else ""
 
-        formatted_context = f"""{web_section}{wiki_intro}### Verified Archival Claims:
+        hooks_md = ""
+        if viral_hooks:
+            hooks_bullets = "\n".join(f"- \"{h}\"" for h in viral_hooks[:4])
+            hooks_md = f"""### High-Intent Viral Inquiry Angles (What Viewers Are Actively Searching):
+{hooks_bullets}
+
+"""
+
+        formatted_context = f"""{web_section}{wiki_intro}{hooks_md}### Verified Archival Claims:
 {claims_md}
 
 ### Key Temporal & Physical Anchors:
@@ -237,7 +249,8 @@ def fetch_topic_research(topic: str) -> Dict[str, str]:
             verified_claims=claims,
             temporal_anchors=dates,
             key_entities=entities,
-            context=formatted_context
+            context=formatted_context,
+            viral_hooks=viral_hooks
         )
     else:
         # Objective, non-hallucinatory domain fallback
@@ -258,12 +271,5 @@ Directorial Guidelines:
             context=formatted_context
         )
 
-    logger.info(f"[Researcher] Evidence Pack compiled for '{topic}' ({len(pack.verified_claims)} verified claims, {len(pack.temporal_anchors)} temporal anchors).")
-    return {
-        "title": pack.title,
-        "summary": pack.summary,
-        "verified_claims": pack.verified_claims,
-        "temporal_anchors": pack.temporal_anchors,
-        "key_entities": pack.key_entities,
-        "context": pack.context
-    }
+    logger.info(f"[Researcher] Evidence Pack compiled for '{topic}' ({len(pack.verified_claims)} verified claims, {len(pack.temporal_anchors)} temporal anchors, {len(pack.viral_hooks)} viral hooks).")
+    return pack.to_dict()

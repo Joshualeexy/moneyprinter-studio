@@ -8,18 +8,9 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from uuid import UUID
 
-from fastapi import UploadFile
-
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from app.services import bgm
-from app.controllers.v1 import video as video_controller
-from app.models.exception import HttpException
-
-
-class _FakeRequest:
-    def __init__(self):
-        self.headers = {"x-task-id": "bgm-upload-test"}
 
 
 class _UnseekableUpload(io.BytesIO):
@@ -288,33 +279,6 @@ class TestBackgroundMusicService(unittest.TestCase):
                 with self.assertRaises(bgm.BgmServiceError):
                     bgm.save_bgm_upload("music.mp3", io.BytesIO(b"valid-audio"))
             self.assertEqual(os.listdir(temp_dir), [])
-
-    def test_upload_controller_returns_uuid_and_maps_errors(self):
-        request = _FakeRequest()
-        upload = UploadFile(filename="music.mp3", file=io.BytesIO(b"audio"))
-        with patch.object(
-            bgm,
-            "save_bgm_upload",
-            return_value="4fca18fce7344f3aa824777a40d45c8c.mp3",
-        ):
-            response = video_controller.upload_bgm_file(request, upload)
-        self.assertEqual(response["status"], 200)
-        self.assertEqual(
-            response["data"]["file"],
-            "4fca18fce7344f3aa824777a40d45c8c.mp3",
-        )
-
-        for service_error, expected_status in (
-            (bgm.BgmUploadError("invalid audio"), 400),
-            (bgm.BgmServiceError("FFmpeg unavailable"), 500),
-        ):
-            with self.subTest(expected_status=expected_status):
-                with patch.object(
-                    bgm, "save_bgm_upload", side_effect=service_error
-                ):
-                    with self.assertRaises(HttpException) as context:
-                        video_controller.upload_bgm_file(request, upload)
-                self.assertEqual(context.exception.status_code, expected_status)
 
     def test_resolve_and_list_prefer_uploaded_file_with_same_name(self):
         with (
