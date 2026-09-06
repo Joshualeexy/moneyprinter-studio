@@ -89,9 +89,28 @@ def render_thumbnail_image(
         acquired = comfy_client.generate_scene_image(prompt_txt, base_image_path)
 
     if not acquired or not os.path.exists(base_image_path):
-        logger.warning("[Thumbnail] ComfyUI unavailable, using dramatic dark canvas fallback")
-        img = Image.new("RGB", (1080, 1920), (10, 14, 22))
-        img.save(base_image_path)
+        # Fallback 1: Extract real frame from rendered video if present
+        video_path = concept.get("video_path")
+        if not video_path or not os.path.exists(video_path) or os.path.getsize(video_path) == 0:
+            parent_dir = os.path.dirname(output_path)
+            if os.path.exists(parent_dir):
+                vids = [os.path.join(parent_dir, f) for f in os.listdir(parent_dir) if f.endswith(".mp4")]
+                if vids:
+                    video_path = vids[0]
+
+        if video_path and os.path.exists(video_path) and os.path.getsize(video_path) > 0:
+            logger.info(f"[Thumbnail] ComfyUI off, extracting cinematic video frame from {video_path}")
+            for ts in ["00:00:03.5", "00:00:02.0", "00:00:05.0", "00:00:01.0"]:
+                cmd = ["ffmpeg", "-y", "-ss", ts, "-i", video_path, "-vframes", "1", "-q:v", "2", base_image_path]
+                subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+                if os.path.exists(base_image_path) and os.path.getsize(base_image_path) > 0:
+                    acquired = True
+                    break
+
+        if not acquired or not os.path.exists(base_image_path):
+            logger.warning("[Thumbnail] ComfyUI and video unavailable, using dramatic dark canvas fallback")
+            img = Image.new("RGB", (1080, 1920), (10, 14, 22))
+            img.save(base_image_path)
 
     # 2. Overlay Viral Typography
     with Image.open(base_image_path).convert("RGBA") as base_img:

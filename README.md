@@ -2,7 +2,7 @@
 
 # 🎬 MoneyPrinter Studio
 
-### Autonomous Niche Cinema Engine & Production Pipeline for Multi-Episode AI Video Generation
+### Autonomous AI Documentary Studio & Production Pipeline for Multi-Episode Video Generation
 
 **Research Grounding • LLM Scriptwriting • AI Shot Direction • ComfyUI SDXL • Edge/Azure TTS • Fitted Pill Karaoke Subtitles • Hardware NVENC • Durable State Machine**
 
@@ -31,7 +31,7 @@
 
 ## 📽️ Visual Showcase & Gallery
 
-The Autonomous Niche Cinema Engine operates entire documentary verticals without human intervention: topic brainstorming, factual research synthesis, scriptwriting with strict timing constraints, sentence-level shot planning, visual routing, audio synchronization, GPU compositing, high-contrast thumbnail rendering, and crash-resilient batch execution.
+The **MoneyPrinter Studio** operates entire documentary verticals without human intervention: topic brainstorming, factual research synthesis, scriptwriting with strict timing constraints, sentence-level shot planning, visual routing, audio synchronization, GPU compositing, high-contrast thumbnail rendering, and crash-resilient batch execution.
 
 ### Dynamic Video & Subtitle Motion Previews
 
@@ -270,8 +270,8 @@ The engine comes pre-configured with **14 production-grade niche profiles** in `
 The interactive installer verifies tools, configures Ollama, downloads director models, builds the virtual environment, and links CLI commands:
 
 ```bash
-git clone https://github.com/yourusername/cinema-engine.git
-cd cinema-engine
+git clone https://github.com/Joshualeexy/moneyprinter-studio.git
+cd moneyprinter-studio
 chmod +x install.sh
 ./install.sh
 ```
@@ -401,10 +401,10 @@ To operate the engine continuously across all 14 niches in a round-robin schedul
 ```
 
 ### Background Daemon via `systemd` (Linux Production)
-Create `/etc/systemd/system/cinema-engine.service`:
+Create `/etc/systemd/system/moneyprinter-studio.service`:
 ```ini
 [Unit]
-Description=Autonomous Niche Cinema Engine 24/7 Generator
+Description=MoneyPrinter Studio 24/7 Generator
 After=network.target
 
 [Service]
@@ -424,9 +424,9 @@ WantedBy=multi-user.target
 Enable and start the service:
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable cinema-engine
-sudo systemctl start cinema-engine
-sudo journalctl -u cinema-engine -f
+sudo systemctl enable moneyprinter-studio
+sudo systemctl start moneyprinter-studio
+sudo journalctl -u moneyprinter-studio -f
 ```
 
 ---
@@ -464,11 +464,11 @@ output/
 
 | Issue | Root Cause | Solution |
 | :--- | :--- | :--- |
-| `NVENC render failed` | GPU encoder session full or driver mismatch | Cinema Engine automatically falls back to CPU `libx264`. To re-enable NVENC, check `nvidia-smi` and ensure FFmpeg has `--enable-nvenc`. |
-| `CUDA out of memory (OOM)` | Ollama and ComfyUI loaded in GPU simultaneously | Ensure director offload is enabled. Cinema Engine automatically calls `keep_alive: 0` on Ollama before ComfyUI launches. |
+| `NVENC render failed` | GPU encoder session full or driver mismatch | MoneyPrinter Studio automatically falls back to CPU `libx264`. To re-enable NVENC, check `nvidia-smi` and ensure FFmpeg has `--enable-nvenc`. |
+| `CUDA out of memory (OOM)` | Ollama and ComfyUI loaded in GPU simultaneously | Ensure director offload is enabled. MoneyPrinter Studio automatically calls `keep_alive: 0` on Ollama before ComfyUI launches. |
 | `Pexels 429 Too Many Requests` | API hourly rate limit reached | Add multiple Pexels keys to `pexels_api_keys = ["key1", "key2"]` in `config.toml` for automatic rotation. |
 | `Edge-TTS Connection Reset` | Upstream Microsoft speech endpoint rate limit | The worker automatically retries TTS calls. If persistent, increase `edge_tts_timeout = 60` in `config.toml`. |
-| `Black frames at end of video` | Video duration shorter than speech duration | Cinema Engine's duration padding automatically loops and pads video clips to match 100% of the speech stream. |
+| `Black frames at end of video` | Video duration shorter than speech duration | MoneyPrinter Studio's duration padding automatically loops and pads video clips to match 100% of the speech stream. |
 
 ---
 
