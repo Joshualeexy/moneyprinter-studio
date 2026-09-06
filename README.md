@@ -484,5 +484,3 @@ Contributions are welcome! Please feel free to open PRs for:
 ## 📜 License
 
 This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
-
-*(For the legacy Streamlit WebUI documentation, see [docs/LEGACY_WEBUI.md](docs/LEGACY_WEBUI.md).)*
