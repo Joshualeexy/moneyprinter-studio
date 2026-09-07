@@ -44,7 +44,9 @@ class ComfyClient:
             return True
         import subprocess
         comfy_dir = os.getenv("COMFY_PATH", os.path.expanduser("~/comfyui/ComfyUI"))
-        cmd = f"cd {comfy_dir} && ./venv/bin/python main.py --listen 127.0.0.1 --port 8188 --lowvram --dont-print-server"
+        log_file = "/home/kodar/face/logs/comfyui.log"
+        os.makedirs(os.path.dirname(log_file), exist_ok=True)
+        cmd = f"cd {comfy_dir} && PYTHONUNBUFFERED=1 ./venv/bin/python main.py --listen 127.0.0.1 --port 8188 --lowvram --dont-print-server >> {log_file} 2>&1"
         subprocess.Popen(cmd, shell=True, executable="/bin/bash", start_new_session=True)
         for _ in range(35):
             time.sleep(1)
@@ -139,15 +141,24 @@ class ComfyClient:
             prompt_res = json.loads(urllib.request.urlopen(req, timeout=10).read())
             prompt_id = prompt_res["prompt_id"]
 
-            # Poll for completion
-            for _ in range(90):
+            # Poll for completion with instant fail-fast on error
+            for _ in range(60):
                 time.sleep(2)
                 try:
                     h_res = self.session.get(f"{self.base_url}/history/{prompt_id}", timeout=20)
                     if h_res.status_code == 200:
                         history_res = h_res.json()
                         if prompt_id in history_res:
-                            outputs = history_res[prompt_id].get("outputs", {})
+                            item = history_res[prompt_id]
+                            # Instant fail-fast check: if node execution failed, abort immediately
+                            status_obj = item.get("status", {})
+                            if status_obj.get("status_str") == "error":
+                                messages = status_obj.get("messages", [])
+                                err_details = messages[-1] if messages else "Execution error"
+                                logger.warning(f"[ComfyUI] Prompt {prompt_id} error in ComfyUI: {err_details}")
+                                return False
+
+                            outputs = item.get("outputs", {})
                             if "9" in outputs and "images" in outputs["9"]:
                                 img_info = outputs["9"]["images"][0]
                                 filename = img_info["filename"]
