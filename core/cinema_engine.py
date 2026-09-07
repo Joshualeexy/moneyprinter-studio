@@ -28,6 +28,7 @@ from app.services import material
 from core.comfy_client import ComfyClient
 from core.motion_graphics import create_redacted_dossier_clip, create_radar_pulse_clip
 from core.asset_registry import registry
+from core.director import MovieDirector
 
 
 def get_sentence_scenes(srt_path: str, audio_duration: float, min_dur: float = 2.2, max_dur: float = 4.2) -> List[Dict]:
@@ -168,7 +169,7 @@ def harvest_unique_timeline(
                 acquired_clip = clip_file
                 registry.register_asset(clip_file, "motion_graphic", "video", topic, niche_name, episode_id)
 
-        elif any(k in lower_txt for k in ["sonar", "radar", "abyssal", "trench", "acoustic", "depth", "signal", "coordinates"]):
+        elif any(k in lower_txt for k in ["sonar ping", "abyssal trench", "depth charges", "underwater submarine"]) and ("deep_sea" in niche_name.lower() or "submarine" in lower_txt or "ocean depth" in lower_txt):
             print(f"  🎬 Scene {idx+1}/{len(scenes)} [MOTION GRAPHIC]: Rendering Animated Sonar Detection Sweep ({shot_dur:.2f}s)")
             create_radar_pulse_clip(clip_file, target_label=topic[:25], duration=shot_dur)
             if os.path.exists(clip_file):
@@ -180,7 +181,8 @@ def harvest_unique_timeline(
             is_hero = (idx == 0)
             is_ai_gen = (shot_obj and getattr(shot_obj, "capture_method", "") == "AI_GENERATIVE")
             if (is_hero or is_ai_gen) and comfy_available:
-                sdxl_prompt = getattr(shot_obj, "sdxl_prompt", f"dramatic cinematic shot of {topic}, {scene_text}, national geographic, 8k, textless")
+                clean_subj = topic.split(":")[0].strip()
+                sdxl_prompt = getattr(shot_obj, "sdxl_prompt", None) or f"dramatic cinematic photorealistic shot of {clean_subj}, 8k, volumetric lighting, national geographic, textless"
                 print(f"  🎬 Scene {idx+1}/{len(scenes)} [ComfyUI SDXL]: Rendering Bespoke Hero Art ({shot_dur:.2f}s)")
                 if comfy.generate_scene_image(sdxl_prompt, img_file):
                     image_to_cinematic_clip(img_file, clip_file, duration=shot_dur, preset_index=idx)
@@ -188,27 +190,27 @@ def harvest_unique_timeline(
                         acquired_clip = clip_file
                         registry.register_asset(img_file, "sdxl", "image", topic, niche_name, episode_id)
 
-        # 3. Multi-Provider HD Stock Video Search (Pexels + Pixabay Fallback) with Candidate Ranking
+        # 3. Multi-Provider HD Stock Video Search (Pexels + Pixabay Fallback) with Dailies Validation
         if not acquired_clip:
-            search_query = getattr(shot_obj, "search_query", None) or f"{topic} {scene_text[:25]}"
+            clean_subject = topic.split(":")[0].strip()
+            search_query = getattr(shot_obj, "search_query", None) or f"{clean_subject} documentary"
+            fallback_query = getattr(shot_obj, "fallback_query", None) or f"{clean_subject} cinematic"
+            
+            # Thematic visual search queries ONLY (strictly NO spoken dialogue fragments)
             candidate_queries = [
                 search_query,
-                f"{topic} cinematic",
-                scene_text[:35],
-                f"{niche_name} documentary",
-                f"{topic} drone"
+                fallback_query,
+                f"{clean_subject} cinematic",
+                f"{niche_name} documentary"
             ]
 
             preferred_source = (visual_cfg.get("source") or config.app.get("video_source", "pexels")).lower()
+            director = MovieDirector(profile)
 
             for q in candidate_queries:
-                stop_words = {"and", "the", "for", "with", "from", "that", "this", "over"}
+                stop_words = {"and", "the", "for", "with", "from", "that", "this", "over", "what", "really", "who"}
                 tokens = [w for w in q.split() if len(w) > 2 and w.lower() not in stop_words]
                 clean_q = " ".join(tokens[:4])
-                # Contextual safeguard: If query contains a city/place name without historical context, anchor it
-                if any(geo in clean_q.lower() for geo in ["baghdad", "rome", "egypt", "athens", "byzantine", "china", "maya", "iraq"]):
-                    if not any(k in clean_q.lower() for k in ["artifact", "relic", "ancient", "ruins", "history", "museum"]):
-                        clean_q += " ancient artifact" 
                 if not clean_q:
                     continue
 
@@ -243,9 +245,20 @@ def harvest_unique_timeline(
                     except Exception as e:
                         logger.debug(f"[Cinema Engine] Pixabay fallback error for '{clean_q}': {e}")
 
-                # Candidate Ranking: score each asset against persistent registry
+                # Candidate Ranking with Director Dailies QA Inspection
                 scored_candidates = []
                 for item in items:
+                    source_info = getattr(item, "source_info", {}) or {}
+                    meta_dict = {
+                        "url": item.url,
+                        "source_page": source_info.get("source_page") or getattr(item, "source_page", ""),
+                        "tags": source_info.get("tags") or getattr(item, "tags", [])
+                    }
+                    approved, reason = director.judge_stock_clip(shot_obj, meta_dict)
+                    if not approved:
+                        logger.debug(f"[Cinema Engine] Dailies rejected candidate: {reason}")
+                        continue
+
                     c_score = registry.score_candidate(
                         item.url,
                         niche=niche_name,
@@ -305,11 +318,13 @@ def harvest_unique_timeline(
         # 4. Universal Fallback: ComfyUI SDXL bespoke scene generation
         if not acquired_clip:
             print(f"  🎬 Scene {idx+1}/{len(scenes)} [FALLBACK SDXL]: ComfyUI Generating Custom Scene visual ({shot_dur:.2f}s)")
-            prompt = f"dramatic cinematic shot of {topic}, {scene_text}, 8k, volumetric lighting, national geographic, textless"
+            clean_subj = topic.split(":")[0].strip()
+            prompt = getattr(shot_obj, "sdxl_prompt", None) or f"dramatic cinematic shot of {clean_subj}, 8k, volumetric lighting, national geographic, textless"
             if comfy_available and comfy.generate_scene_image(prompt, img_file):
                 image_to_cinematic_clip(img_file, clip_file, duration=shot_dur, preset_index=idx)
                 if os.path.exists(clip_file) and os.path.getsize(clip_file) > 0:
                     acquired_clip = clip_file
+                    registry.register_asset(img_file, "sdxl", "image", topic, niche_name, episode_id)
 
         # 5. Final Fail-Safe: Procedural Atmospheric Ken Burns Canvas
         if not acquired_clip:

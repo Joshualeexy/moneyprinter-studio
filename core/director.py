@@ -77,12 +77,17 @@ For EACH of the {total_shots} sequential shots in the script, you must direct:
 1. "script_segment": The spoken words happening during this shot.
 2. "visual_description": What the audience physically sees on screen.
 3. "capture_method":
-   - "STOCK_MOTION": Real filmable world footage (drone flyovers, weather, landscapes, city streets, factories, laboratories, supercomputers).
-   - "AI_GENERATIVE": UNFILMABLE scenes where cameras cannot physically exist in the real world (pitch-black subglacial lake 4000m deep, extremophile microbes, alien ocean on Europa/Mars, inside nanometer laser vacuum chambers, ancient tombs).
-4. "search_query": For STOCK_MOTION, a 2 to 4 word search term anchored to physical reality in '{topic}' (e.g. "semiconductor cleanroom", "silicon wafer robot", "glacier ice shelf"). NEVER search for abstract politics or trade diplomacy (e.g. NEVER search "US-China trade war") because stock sites return random waving flags!
-5. "fallback_query": Simple 1-2 word fallback term.
-6. "sdxl_prompt": For AI_GENERATIVE or fallback, a photorealistic textless 8k prompt set in '{topic}' (cinematic lighting, national geographic, 35mm photograph, masterwork, textless).
-7. "avoid_concepts": List of 2 to 4 forbidden visual concepts that would ruin this shot (e.g. for polar ice: ["ice fishing", "recreation", "scuba diving", "sunny beach"]; for tech: ["food", "casino", "nature", "flags"]).
+   - "AI_GENERATIVE": MUST be chosen for UNFILMABLE scenes where real video cameras cannot physically film the subject. This includes:
+     * ALL extinct prehistoric beasts, dinosaurs, primordial serpents, and megafauna (e.g. Titanoboa, Megalodon, T-Rex, Spinosaurus). Real live specimens do not exist on Earth!
+     * ALL mythical/legendary creatures, monsters, cryptids, and extraterrestrial beings.
+     * Deep-time ancient events (asteroid impacts, ancient cataclysms, primordial earth).
+     * Subglacial lakes, deep space anomalies, alien planets, subterranean micro-processes.
+     NEVER choose STOCK_MOTION if the shot depicts an extinct creature, dinosaur, or monster!
+   - "STOCK_MOTION": Real filmable world footage ONLY (drone flyovers, weather, landscapes, modern laboratories, excavations, real living nature, modern cities, archival documents).
+4. "search_query": For STOCK_MOTION only, a 2 to 3 word concrete physical visual term (e.g. "tropical rainforest", "misty swamp", "fossil excavation", "observatory telescope", "blizzard mountains", "nuclear reactor core"). NEVER search for abstract words, spoken dialogue, or full titles.
+5. "fallback_query": Simple 1-2 word thematic fallback term (e.g. "rainforest", "telescope", "blizzard").
+6. "sdxl_prompt": For AI_GENERATIVE or fallback, a vivid photorealistic textless 8k prompt describing the physical creature or scene (e.g. "giant prehistoric Titanoboa snake slithering through steamy Eocene swamp, photorealistic, 8k, National Geographic, volumetric lighting, textless").
+7. "avoid_concepts": List of 2 to 4 forbidden visual concepts that would ruin this shot (e.g. ["people", "modern", "gym", "cartoon", "city"]).
 
 Return a JSON array of {total_shots} objects. Return ONLY raw valid JSON."""
 
@@ -135,7 +140,16 @@ Return a JSON array of {total_shots} objects. Return ONLY raw valid JSON."""
         # If LLM returned fewer or unparseable shots, generate safe defaults
         shots: List[DirectorShot] = []
         topic_clean = topic.strip()
-        topic_words = set(topic_clean.lower().split())
+        clean_subject = topic_clean.split(":")[0].strip()
+
+        # Keywords that indicate unfilmable prehistoric / mythical entities
+        unfilmable_creatures = {
+            "titanoboa", "megalodon", "dunkleosteus", "spinosaurus", "quetzalcoatlus",
+            "centipede", "dinosaur", "predator", "monster", "extinct", "creature", "beast",
+            "leviathan", "kraken", "alien", "cryptid", "dragon", "mammoth"
+        }
+        topic_lower = topic_clean.lower()
+        is_creature_topic = any(c in topic_lower for c in unfilmable_creatures)
 
         for idx in range(total_shots):
             item = raw_shots[idx] if idx < len(raw_shots) and isinstance(raw_shots[idx], dict) else {}
@@ -144,28 +158,21 @@ Return a JSON array of {total_shots} objects. Return ONLY raw valid JSON."""
             if cap_method not in {"STOCK_MOTION", "AI_GENERATIVE"}:
                 cap_method = "STOCK_MOTION"
 
-            # Anchor search query to topic safely with null protection
+            # Auto-enforce AI_GENERATIVE if the shot depicts an unfilmable creature or action
+            shot_text = f"{item.get('visual_description', '')} {item.get('script_segment', '')}".lower()
+            if is_creature_topic and any(w in shot_text for w in ["snake", "beast", "monster", "predator", "creature", "titanoboa", "crushing", "hunting", "attack", "extinct", "colossus"]):
+                cap_method = "AI_GENERATIVE"
+
+            # Clean search query (concise 2-4 visual physical words; do NOT prepend massive 60-char title)
             raw_q_val = item.get("search_query")
             if not raw_q_val or not isinstance(raw_q_val, str):
-                raw_q_val = f"{topic_clean} cinematic"
-            raw_q = re.sub(r'["\']', '', raw_q_val).strip()
-
-            q_words = set(raw_q.lower().split())
-            if not (topic_words & q_words):
-                search_q = f"{topic_clean} {raw_q}".strip()
-            else:
-                search_q = raw_q
+                raw_q_val = f"{clean_subject} documentary"
+            search_q = re.sub(r'["\']', '', raw_q_val).strip()
 
             raw_fb_val = item.get("fallback_query")
             if not raw_fb_val or not isinstance(raw_fb_val, str):
-                raw_fb_val = topic_clean
-            raw_fb = re.sub(r'["\']', '', raw_fb_val).strip()
-
-            fb_words = set(raw_fb.lower().split())
-            if not (topic_words & fb_words):
-                fallback_q = f"{topic_clean} {raw_fb}".strip()
-            else:
-                fallback_q = raw_fb
+                raw_fb_val = clean_subject
+            fallback_q = re.sub(r'["\']', '', raw_fb_val).strip()
 
             # Avoid concepts
             avoid = item.get("avoid_concepts", [])
@@ -173,10 +180,10 @@ Return a JSON array of {total_shots} objects. Return ONLY raw valid JSON."""
                 avoid = []
             combined_avoid = list(set([str(a).lower().strip() for a in avoid] + self.profile_negatives))
 
-            # SDXL prompt
+            # SDXL prompt - preserve director's specific prompt, or anchor to clean subject
             raw_sdxl = str(item.get("sdxl_prompt") or "").strip()
-            if not raw_sdxl or topic_clean.lower() not in raw_sdxl.lower():
-                sdxl_p = f"dramatic cinematic photorealistic shot of {topic_clean}, {raw_sdxl}, volumetric lighting, 8k, national geographic, textless"
+            if not raw_sdxl:
+                sdxl_p = f"dramatic cinematic photorealistic shot of {clean_subject}, volumetric lighting, 8k, national geographic, textless"
             else:
                 sdxl_p = f"{raw_sdxl}, cinematic lighting, 8k, national geographic, textless"
 
@@ -200,29 +207,44 @@ Return a JSON array of {total_shots} objects. Return ONLY raw valid JSON."""
     def judge_stock_clip(self, shot: DirectorShot, video_meta: dict) -> Tuple[bool, str]:
         """
         The Dailies Review: Inspects candidate video title, URL slug, and tags.
-        Rejects misfires (ice fishermen, scuba divers, irrelevant sports).
+        Rejects misfires (gym/fitness, fashion/models, costumes, feet, letters, modern cars, etc.).
         """
         v_url = (video_meta.get("source_page") or video_meta.get("url") or "").lower()
-        v_tags = " ".join(str(t).lower() for t in video_meta.get("tags", []))
+        raw_tags = video_meta.get("tags") or []
+        if isinstance(raw_tags, list):
+            v_tags = " ".join(str(t).lower() for t in raw_tags)
+        else:
+            v_tags = str(raw_tags).lower()
         candidate_text = f"{v_url} {v_tags}"
 
-        # 1. Fast Negative Keyword Rejection
-        for avoid in shot.avoid_concepts:
-            if avoid and avoid.lower() in candidate_text:
-                return False, f"Director rejected: matches forbidden concept '{avoid}' in {v_url}"
+        # 1. Fast Negative Keyword Rejection from shot and profile
+        if shot and hasattr(shot, "avoid_concepts"):
+            for avoid in shot.avoid_concepts:
+                if avoid and avoid.lower() in candidate_text:
+                    return False, f"Director rejected: matches forbidden concept '{avoid}' in {v_url}"
 
-        # 2. General cross-niche disqualifiers for serious documentaries
+        # 2. Strict non-documentary disqualifiers:
         generic_trash = {
-            "vlog", "bikini", "resort", "hotel", "cocktail", "party",
-            "cooking", "recipe", "workout", "gym", "fitness", "yoga"
+            "vlog", "bikini", "swimwear", "resort", "hotel", "cocktail", "party",
+            "cooking", "recipe", "food", "meat", "eating", "restaurant",
+            "workout", "gym", "fitness", "yoga", "bodybuilder", "muscle", "glutes",
+            "underwear", "boxer", "lingerie", "fashion", "model", "catwalk", "glamour",
+            "costume", "cosplay", "halloween", "toy", "board-game", "game-board",
+            "chess", "letters", "alphabet", "scrabble", "pegboard",
+            "feet", "foot", "barefoot", "pedicure", "heel", "toes",
+            "modern-car", "automobile", "traffic", "parking", "parking-lot", "suv"
         }
         for trash in generic_trash:
             if trash in candidate_text:
-                return False, f"Director rejected: matches generic non-documentary tag '{trash}'"
+                script_seg = getattr(shot, "script_segment", "").lower() if shot else ""
+                if trash in {"feet", "foot", "barefoot"} and ("footprint" in script_seg or "walk" in script_seg):
+                    continue
+                return False, f"Director rejected: matches non-documentary tag '{trash}' in {v_url}"
 
-        # 3. Reject generic waving flags and government press rooms unless script explicitly mentions a flag
-        flag_terms = {"flag", "waving-flag", "national-flag", "capitol", "white-house", "presidential"}
-        if any(f in candidate_text for f in flag_terms) and "flag" not in shot.script_segment.lower():
+        # 3. Reject generic waving flags unless script explicitly mentions a flag
+        flag_terms = {"flag", "waving-flag", "national-flag", "capitol", "white-house"}
+        script_seg = getattr(shot, "script_segment", "").lower() if shot else ""
+        if any(f in candidate_text for f in flag_terms) and "flag" not in script_seg:
             return False, f"Director rejected: generic national flag/capitol misfire in '{v_url}'"
 
         return True, "Director approved"

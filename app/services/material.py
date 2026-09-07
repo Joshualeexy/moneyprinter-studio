@@ -366,13 +366,18 @@ def search_videos_pexels(
                     item.provider = "pexels"
                     item.url = video["link"]
                     item.duration = duration
+                    source_page_url = _safe_public_url(v.get("url"))
+                    item_tags = v.get("tags", [])
+                    item.source_page = source_page_url
+                    item.tags = item_tags
                     item.source_info = {
                         "provider": "pexels",
                         "search_term": search_term,
                         "asset_id": (
                             str(v.get("id")) if v.get("id") is not None else None
                         ),
-                        "source_page": _safe_public_url(v.get("url")),
+                        "source_page": source_page_url,
+                        "tags": item_tags,
                         "creator": _creator_info(v.get("user")),
                         "rendition": {
                             "id": (
@@ -490,13 +495,18 @@ def search_videos_pixabay(
                     item.provider = "pixabay"
                     item.url = video["url"]
                     item.duration = duration
+                    source_page_url = _safe_public_url(v.get("pageURL"))
+                    item_tags = [t.strip() for t in str(v.get("tags", "")).split(",") if t.strip()]
+                    item.source_page = source_page_url
+                    item.tags = item_tags
                     item.source_info = {
                         "provider": "pixabay",
                         "search_term": search_term,
                         "asset_id": (
                             str(v.get("id")) if v.get("id") is not None else None
                         ),
-                        "source_page": _safe_public_url(v.get("pageURL")),
+                        "source_page": source_page_url,
+                        "tags": item_tags,
                         "creator": _creator_info(
                             {
                                 "id": v.get("user_id"),
