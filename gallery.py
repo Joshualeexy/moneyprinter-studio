@@ -1506,15 +1506,6 @@ HTML_UI_TEMPLATE = """<!DOCTYPE html>
                 updateNicheOptions();
                 renderGallery();
                 
-                const urlParams = new URLSearchParams(window.location.search);
-                const inspectParam = urlParams.get('inspect');
-                if (inspectParam !== null) {
-                    const idx = parseInt(inspectParam);
-                    if (!isNaN(idx) && allVideos[idx]) {
-                        openInspector(allVideos[idx]);
-                    }
-                }
-                
                 if (allVideos.length > 0 && allVideos[0].mtime > lastSeenMtime) {
                     if (lastSeenMtime > 0) {
                         triggerNewVideoToast(allVideos[0]);
