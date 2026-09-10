@@ -116,54 +116,77 @@ from core.researcher import fetch_topic_research
 from core.visual_fetcher import VisualFetcher
 
 
-VOICE_CATALOG = {
-    "en-US-ChristopherNeural": "authoritative, solemn, deep cosmic documentary male",
-    "en-GB-RyanNeural": "cinematic, refined, chilling British storytelling male",
-    "en-US-GuyNeural": "gritty, grounded, sharp true-crime investigative male",
-    "en-US-BrianNeural": "measured, gripping, mature investigative American male",
-    "en-US-AndrewNeural": "fast-paced, urgent, modern high-stakes male",
-    "en-GB-SoniaNeural": "atmospheric, eerie, classical British documentary female",
-    "en-US-AriaNeural": "sharp, intense, mysterious investigative American female",
-    "en-US-AvaNeural": "compelling, suspenseful, narrative American female",
+ELEVENLABS_VOICE_CATALOG = {
+    "elevenlabs:JBFqnCBsd6RMkjVDRZzb:George": "warm, captivating British storyteller, rich narrative male (Best for: ancient ruins, forbidden archaeology, ancient mysteries)",
+    "elevenlabs:nPczCjzI2devNBz1zQrb:Brian": "deep, resonant, comforting and solemn male (Best for: dark history, forbidden artifacts, taboos, deep secrets)",
+    "elevenlabs:IKne3meq5aSn9XLyUdCD:Charlie": "deep, confident, energetic male (Best for: deep sea anomalies, abyss monsters, oceanic dread)",
+    "elevenlabs:onwK4e9ZLuTAKqWW03F9:Daniel": "steady, formal British broadcaster male (Best for: out-of-place artifacts, lost cities, scholarly investigations)",
+    "elevenlabs:pNInz6obpgDQGcFmaJgB:Adam": "dominant, firm, commanding male (Best for: military black ops, declassified projects, nuclear secrets)",
+    "elevenlabs:CwhRBWXzGAHq8TQ4Fs17:Roger": "laid-back, casual, resonant male (Best for: bank heists, diamond center breaches, mastermind crimes)",
+    "elevenlabs:pFZP5JQG7iQjIQuC4Bku:Lily": "velvety, confident British actress female (Best for: mythology, gods, ancient legends, epic folklore)",
+    "elevenlabs:SOYHLrjzK2X1ezoPC6cr:Harry": "fierce, rough warrior male (Best for: prehistoric beasts, apex predators, extinction catastrophes)",
+    "elevenlabs:EXAVITQu4vr4xnSDxMaL:Sarah": "mature, reassuring, confident female (Best for: psychological experiments, mind control, MKUltra)",
+    "elevenlabs:pqHfZKP75CvOlQylNhV4:Bill": "wise, mature, crisp old narrator male (Best for: space anomalies, cosmic voids, deep space signals)",
+    "elevenlabs:TX3LPaxmHKxFdv7VOQHJ:Liam": "energetic, confident social media male (Best for: cutting-edge tech, AI dominance, silicon labs)",
+    "elevenlabs:N2lVS1w4EtoT3dr4eOWO:Callum": "husky, intense trickster male (Best for: true crime cold cases, DB Cooper, unsolved disappearances)",
+    "elevenlabs:Xb7hH8MSUJpSbSDYk0k2:Alice": "clear, engaging British educator female (Best for: Dyatlov Pass, mysterious phenomena, unsolved puzzles)",
+    "elevenlabs:hpp4J3VqNfWAUOO0d1Us:Bella": "professional, bright, warm female (Best for: disaster simulations, apocalyptic what-if scenarios)",
 }
+
+EDGE_VOICE_CATALOG = {
+    "en-US-ChristopherNeural": "authoritative, solemn, deep cosmic documentary male (Best for: deep space anomalies, cosmic voids, primordial megafauna, extinction events)",
+    "en-GB-RyanNeural": "cinematic, refined, chilling British storytelling male (Best for: ancient ruins, forbidden archaeology, cataclysms, historical mysteries)",
+    "en-US-GuyNeural": "gritty, grounded, sharp true-crime investigative male (Best for: true crime cold cases, bank heists, FBI investigations)",
+    "en-US-BrianNeural": "measured, gripping, mature investigative American male (Best for: dark psychology, declassified mind control, military black ops)",
+    "en-US-AndrewNeural": "fast-paced, urgent, modern high-stakes male (Best for: cutting-edge tech, cyber espionage, drone warfare)",
+    "en-GB-SoniaNeural": "atmospheric, eerie, classical British documentary female (Best for: mythological disasters, ancient relics, sunken temples)",
+    "en-US-AriaNeural": "sharp, intense, mysterious investigative American female (Best for: psychological experiments, strange medical puzzles, unsolved disappearances)",
+}
+
+VOICE_CATALOG = ELEVENLABS_VOICE_CATALOG
 
 
 def select_dynamic_voice(topic: str, script: str, profile: dict) -> str:
     """Dynamically casts the optimal narrator voice based on the story's emotional tone and mystery."""
-    configured = profile.get("voice", {}).get("voice_name")
-    if configured and configured != "en-US-ChristopherNeural" and not profile.get("voice", {}).get("dynamic", True):
+    voice_cfg = profile.get("voice", {})
+    provider = voice_cfg.get("provider", "elevenlabs").lower()
+    configured = voice_cfg.get("voice_name")
+
+    if configured and not voice_cfg.get("dynamic", False):
         return configured
 
+    if provider == "edge":
+        catalog = EDGE_VOICE_CATALOG
+        default_fallback = configured or "en-US-ChristopherNeural"
+    else:
+        catalog = ELEVENLABS_VOICE_CATALOG
+        default_fallback = configured or "elevenlabs:JBFqnCBsd6RMkjVDRZzb:George"
+
+    catalog_desc = "\n".join([f"- {v}: {desc}" for v, desc in catalog.items()])
     prompt = f"""You are the Executive Audio Casting Director for viral documentary shorts.
 Analyze this video topic and script, and select the single best narrator voice from the catalog below to maximize suspense and viewer retention.
 
 Catalog:
-- en-US-ChristopherNeural: Deep, solemn, authoritative male (Best for: deep space anomalies, cosmic voids, primordial megafauna, extinction events)
-- en-GB-RyanNeural: Cinematic, chilling British male (Best for: ancient ruins, forbidden archaeology, cataclysms, historical mysteries)
-- en-US-GuyNeural: Gritty, tense, noir forensic male (Best for: true crime cold cases, bank heists, FBI investigations)
-- en-US-BrianNeural: Mature, grounded, suspenseful American male (Best for: dark psychology, declassified mind control, military black ops)
-- en-US-AndrewNeural: Fast, urgent, modern investigative male (Best for: cutting-edge tech, cyber espionage, drone warfare)
-- en-GB-SoniaNeural: Atmospheric, eerie, classical British female (Best for: mythological disasters, ancient relics, sunken temples)
-- en-US-AriaNeural: Sharp, intense, mysterious American female (Best for: psychological experiments, strange medical puzzles, unsolved disappearances)
+{catalog_desc}
 
 Topic: "{topic}"
 Script excerpt: "{script[:250]}..."
 
-Return ONLY the exact voice identifier string (e.g. "en-GB-RyanNeural"). No punctuation, no explanation."""
+Return ONLY the exact voice identifier string (e.g. "{list(catalog.keys())[0]}"). No punctuation, no explanation."""
 
     app_cfg = _get_llm_config(profile)
     try:
         chosen = llm._generate_response(prompt, app_config=app_cfg)
         if chosen:
             chosen = chosen.strip().replace('"', '').replace("'", "")
-            for v in VOICE_CATALOG:
-                if v.lower() in chosen.lower():
+            for v in catalog:
+                if v.lower() in chosen.lower() or v.split(":")[-1].lower() in chosen.lower():
                     logger.info(f"[Casting Director] Selected voice: {v} for '{topic}'")
                     return v
     except Exception as e:
         logger.warning(f"[Casting Director] Voice selection fallback: {e}")
 
-    return "en-US-ChristopherNeural"
+    return default_fallback
 
 
 def build_system_script_prompt(profile: dict, topic: str, research_context: str = "") -> str:

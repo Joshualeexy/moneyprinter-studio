@@ -18,7 +18,7 @@ total_episodes = 5
 episodes = [ "The Yuba County Five Disappearance", "The DB Cooper Skyjacking", "The Somerton Man Tamam Shud Mystery", "The Hinterkaifeck Murders", "The Isdal Woman Cold Case",]
 
 [llm]
-provider = "deepseek"
+provider = "elevenlabs"
 model = "deepseek-chat"
 
 [persona]
@@ -27,8 +27,8 @@ hook_style = "paradox_or_shock"
 banned_phrases = [ "in today's video", "dive into", "welcome back", "hit that subscribe button",]
 
 [voice]
-provider = "edge"
-voice_name = "en-US-ChristopherNeural"
+provider = "elevenlabs"
+voice_name = "elevenlabs:N2lVS1w4EtoT3dr4eOWO:Callum"
 voice_rate = 1.12
 voice_volume = 1.0
 

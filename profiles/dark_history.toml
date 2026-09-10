@@ -18,7 +18,7 @@ total_episodes = 5
 episodes = [ "The Baghdad Battery and Ancient Electricity", "Greek Fire: The Byzantines Lost Superweapon", "The Antikythera Mechanism: A 2000 Year Old Computer", "Damascus Steel and Ancient Nanotechnology", "The Roman Flexible Glass That Got Its Inventor Executed",]
 
 [llm]
-provider = "deepseek"
+provider = "elevenlabs"
 model = "deepseek-chat"
 
 [persona]
@@ -27,8 +27,8 @@ hook_style = "paradox_or_shock"
 banned_phrases = [ "in today's video", "dive into", "welcome back", "let's explore", "hit that subscribe button",]
 
 [voice]
-provider = "edge"
-voice_name = "en-US-ChristopherNeural"
+provider = "elevenlabs"
+voice_name = "elevenlabs:nPczCjzI2devNBz1zQrb:Brian"
 voice_rate = 1.12
 voice_volume = 1.0
 

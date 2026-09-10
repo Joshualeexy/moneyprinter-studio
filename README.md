@@ -4,7 +4,7 @@
 
 ### Autonomous AI Documentary Studio & Production Pipeline for Multi-Episode Video Generation
 
-**Research Grounding • LLM Scriptwriting • AI Shot Direction • ComfyUI SDXL • Edge/Azure TTS • Fitted Pill Karaoke Subtitles • Hardware NVENC • Durable State Machine**
+**Research Grounding • LLM Scriptwriting • AI Shot Direction • ComfyUI SDXL • ElevenLabs / Edge / Azure TTS • Fitted Pill Karaoke Subtitles • Hardware NVENC • Durable State Machine**
 
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -148,7 +148,7 @@ flowchart TD
     end
 
     subgraph AUDIO_SUB["4. Audio & Subtitle Subsystem"]
-        TTS["app/services/voice.py\n(Edge-TTS / Azure Neural)"]
+        TTS["app/services/voice.py\n(ElevenLabs / Edge-TTS / Azure Neural)"]
         WORDS["Phonetic Word Cues & Alignment"]
         KARAOKE["Montserrat-Black Fitted Dark Pill\nKaraoke Overlay Images"]
     end
@@ -246,20 +246,20 @@ The engine comes pre-configured with **14 production-grade niche profiles** in `
 
 | Profile File | Niche Topic | Arc Title | Voice & Pacing | Visual Style Tokens |
 | :--- | :--- | :--- | :--- | :--- |
-| `what_if.toml` | What If & Catastrophes | Cataclysmic Hypotheticals: Earth, Physics & The Universe | ChristopherNeural (1.12x) | Epic planetary scales, apocalyptic CGI, cosmic physics |
-| `space_anomalies.toml` | Deep Space Mysteries | Unexplained Signals & Cosmic Anomalies | ChristopherNeural (1.10x) | Deep space telescope, radio telescopes, cosmic void |
-| `prehistoric.toml` | Prehistoric Earth | Primordial Monsters & Extinction Events | ChristopherNeural (1.12x) | Prehistoric jungles, giant reptiles, fossil excavations |
-| `military_black_ops.toml` | Military Black Ops | Top Secret Weapons & Cold War Programs | ChristopherNeural (1.12x) | Skunkworks blueprints, radar scopes, redacted files |
-| `forbidden_archaeology.toml` | Forbidden Archaeology | Impossible Megaliths & Ancient Technologies | ChristopherNeural (1.12x) | Megalithic masonry, subterranean tunnels, LIDAR scans |
-| `unsolved_mysteries.toml` | Chilling Cold Cases | Historical Anomalies & Vanishing Phenomena | ChristopherNeural (1.12x) | Foggy wilderness, archival evidence, vintage logs |
-| `deep_sea.toml` | Deep Sea Horrors | Abyssal Trench Anomalies & Lost Submersibles | ChristopherNeural (1.10x) | Bathypelagic zone, sonar telemetry, abyssal bioluminescence |
-| `money_heists.toml` | World's Greatest Heists | The Perfect Crimes: Safe Cracking & Vault Breaches | ChristopherNeural (1.10x) | Bank vaults, security laser schematics, diamond quarters |
-| `true_crime.toml` | True Crime Mysteries | Chilling Cold Cases & Vanished Enigmas | ChristopherNeural (1.10x) | Crime scene evidence, police reports, archival photographs |
-| `psychology.toml` | Dark Psychology | Forbidden Experiments & Psychological Mind Control | ChristopherNeural (1.10x) | Vintage psychiatric laboratories, surveillance monitors |
-| `ancient.toml` | Ancient High Tech | Lost Engineering & Out-Of-Place Artifacts | ChristopherNeural (1.10x) | Weathered bronze gears, temple relief carvings, papyrus |
-| `mythology.toml` | Cataclysmic Mythology | Cataclysms, Lost Civilizations & Planetary Deluges | ChristopherNeural (1.10x) | Volcanic ash clouds, tidal waves, ancient monoliths |
-| `tech.toml` | Tech & Cyber Espionage | Silicon Vaults, Quantum Encryption & Submarine Cables | ChristopherNeural (1.10x) | Cleanrooms, silicon wafers, fiber optic underwater maps |
-| `dark_history.toml` | Dark History | Suppressed Historical Coverups | ChristopherNeural (1.10x) | Declassified documents, antique photographs |
+| `what_if.toml` | What If & Catastrophes | Cataclysmic Hypotheticals: Earth, Physics & The Universe | ElevenLabs: Bella (1.12x) | Epic planetary scales, apocalyptic CGI, cosmic physics |
+| `space_anomalies.toml` | Deep Space Mysteries | Unexplained Signals & Cosmic Anomalies | ElevenLabs: Bill (1.10x) | Deep space telescope, radio telescopes, cosmic void |
+| `prehistoric.toml` | Prehistoric Earth | Primordial Monsters & Extinction Events | ElevenLabs: Harry (1.12x) | Prehistoric jungles, giant reptiles, fossil excavations |
+| `military_black_ops.toml` | Military Black Ops | Top Secret Weapons & Cold War Programs | ElevenLabs: Adam (1.12x) | Skunkworks blueprints, radar scopes, redacted files |
+| `forbidden_archaeology.toml` | Forbidden Archaeology | Impossible Megaliths & Ancient Technologies | ElevenLabs: Daniel (1.12x) | Megalithic masonry, subterranean tunnels, LIDAR scans |
+| `unsolved_mysteries.toml` | Chilling Cold Cases | Historical Anomalies & Vanishing Phenomena | ElevenLabs: Alice (1.12x) | Foggy wilderness, archival evidence, vintage logs |
+| `deep_sea.toml` | Deep Sea Horrors | Abyssal Trench Anomalies & Lost Submersibles | ElevenLabs: Charlie (1.10x) | Bathypelagic zone, sonar telemetry, abyssal bioluminescence |
+| `money_heists.toml` | World's Greatest Heists | The Perfect Crimes: Safe Cracking & Vault Breaches | ElevenLabs: Roger (1.10x) | Bank vaults, security laser schematics, diamond quarters |
+| `true_crime.toml` | True Crime Mysteries | Chilling Cold Cases & Vanished Enigmas | ElevenLabs: Callum (1.10x) | Crime scene evidence, police reports, archival photographs |
+| `psychology.toml` | Dark Psychology | Forbidden Experiments & Psychological Mind Control | ElevenLabs: Sarah (1.10x) | Vintage psychiatric laboratories, surveillance monitors |
+| `ancient.toml` | Ancient High Tech | Lost Engineering & Out-Of-Place Artifacts | ElevenLabs: George (1.10x) | Weathered bronze gears, temple relief carvings, papyrus |
+| `mythology.toml` | Cataclysmic Mythology | Cataclysms, Lost Civilizations & Planetary Deluges | ElevenLabs: Lily (1.10x) | Volcanic ash clouds, tidal waves, ancient monoliths |
+| `tech.toml` | Tech & Cyber Espionage | Silicon Vaults, Quantum Encryption & Submarine Cables | ElevenLabs: Liam (1.10x) | Cleanrooms, silicon wafers, fiber optic underwater maps |
+| `dark_history.toml` | Dark History | Suppressed Historical Coverups | ElevenLabs: Brian (1.10x) | Declassified documents, antique photographs |
 
 ---
 

@@ -27,7 +27,7 @@ episodes = [
 ]
 
 [llm]
-provider = "deepseek"
+provider = "elevenlabs"
 model = "deepseek-chat"
 
 [persona]
@@ -36,8 +36,8 @@ hook_style = "paradox_or_shock"
 banned_phrases = ["in today's video", "dive into", "welcome back", "let's explore", "hit that subscribe button"]
 
 [voice]
-provider = "edge"
-voice_name = "en-US-ChristopherNeural"
+provider = "elevenlabs"
+voice_name = "elevenlabs:SOYHLrjzK2X1ezoPC6cr:Harry"
 voice_rate = 1.12
 voice_volume = 1.0
 

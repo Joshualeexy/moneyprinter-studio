@@ -18,7 +18,7 @@ total_episodes = 5
 episodes = [ "The Secret CIA Chip Fab Built In 1984", "Quantum Supremacy: Breaking Global Encryption", "The Deep Underground Cables Powering The Internet", "Autonomous Drone Swarms in Modern Warfare", "The Secret Silicon Vault in the Mojave Desert",]
 
 [llm]
-provider = "deepseek"
+provider = "elevenlabs"
 model = "deepseek-chat"
 
 [persona]
@@ -27,8 +27,8 @@ hook_style = "paradox_or_shock"
 banned_phrases = [ "in today's video", "dive into", "welcome back", "hit that subscribe button",]
 
 [voice]
-provider = "edge"
-voice_name = "en-US-ChristopherNeural"
+provider = "elevenlabs"
+voice_name = "elevenlabs:TX3LPaxmHKxFdv7VOQHJ:Liam"
 voice_rate = 1.12
 voice_volume = 1.0
 
