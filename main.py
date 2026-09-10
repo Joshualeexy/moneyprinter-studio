@@ -13,7 +13,13 @@ if __name__ == "__main__":
     parser.add_argument("--topic", default=None, help="Explicit topic override")
     parser.add_argument("--clear-state", action="store_true", help="Clear saved state and start fresh")
     parser.add_argument("--episode", type=int, default=None, help="Episode number in series (e.g. 1, 2, 3)")
-    args = parser.parse_args()
+    parser.add_argument("--gallery", "--server", action="store_true", help="Start the video gallery web server")
+    args, unknown = parser.parse_known_args()
+
+    if args.gallery or (len(sys.argv) > 1 and sys.argv[1] in ("gallery", "server")):
+        from gallery import main as gallery_main
+        gallery_main()
+        sys.exit(0)
 
     run_worker_pipeline(
         profile_path=args.profile,
@@ -21,3 +27,4 @@ if __name__ == "__main__":
         clear_state=args.clear_state,
         episode_num=args.episode
     )
+

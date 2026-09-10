@@ -46,6 +46,27 @@ The **MoneyPrinter Studio** operates entire documentary verticals without human 
 
 ---
 
+### 🖥️ First-Party Web Video Gallery & Theater Player (`gallery.py`)
+
+MoneyPrinter Studio includes a unified web video gallery and theater player for instant browsing, playback, and metadata inspection across all generated archives.
+
+<div align="center">
+
+| 🎬 Interactive Video Gallery Feed | 🔍 Video Inspector & Narrative Script Modal |
+| :---: | :---: |
+| <img src="docs/showcase/studio_gallery_web.png" width="490" alt="MoneyPrinter Studio Web Gallery Feed" /> | <img src="docs/showcase/studio_inspector_modal.png" width="490" alt="Video Inspector and Script Modal" /> |
+| *Real-time video feed with niche tags, live search, sort options, and size & duration badges* | *Spotlight inspector with narrative script viewer, auto-extracted thumbnail, and fullscreen theater playback* |
+
+</div>
+
+- **Auto-Started Server**: Automatically launches in the background on port `5050` (`http://localhost:5050`) when running pipeline batches (`python main.py` or `./run_worker.sh`).
+- **HTTP 206 Partial Streaming**: Instant seek and bufferless playback with native timeline scrubbing.
+- **Mobile-Responsive Layout**: Single-column vertical 9:16 cards with ~70% screen height proportioning and pinned spotlight controls.
+- **Audio Chime & Toast Alerts**: Automatically alerts with a synth chime and toast notification the moment a new episode finishes rendering.
+- **Standalone Command**: Run independently anytime via `python gallery.py --port 5050`.
+
+---
+
 ### Autonomous Series Gallery (Real Generated Outputs)
 
 Every image below represents an episode produced autonomously by the pipeline, complete with chronological archiving and high-CTR thumbnail rendering:
@@ -404,6 +425,13 @@ python worker.py --profile what_if --topic "What If Earth Had Saturn's Rings?"
 ### 5. Clear Stalled Checkpoint for a Niche
 ```bash
 ./run_worker.sh clear what_if
+```
+
+### 6. Launch Web Video Gallery & Theater Player
+Spins up the web UI on port 5050 for browsing, streaming, and inspecting all rendered episodes:
+```bash
+python gallery.py --port 5050
+# Automatically accessible at http://localhost:5050
 ```
 
 ---

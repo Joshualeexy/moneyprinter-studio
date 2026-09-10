@@ -514,6 +514,12 @@ def print_production_scorecard(metadata: dict, reg_stats: dict, dest_mp4: Path, 
 
 
 def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_state: bool = False, episode_num: int = None):
+    try:
+        from gallery import ensure_gallery_server_running
+        ensure_gallery_server_running()
+    except Exception:
+        pass
+
     profile = load_profile(profile_path)
     niche_slug = profile["niche"]["slug"]
     
