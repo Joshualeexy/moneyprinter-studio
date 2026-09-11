@@ -11,6 +11,16 @@ import sys
 from typing import TYPE_CHECKING, Any, Sequence
 from uuid import UUID, uuid4
 
+def _ensure_venv():
+    try:
+        import loguru
+    except ImportError:
+        venv_py = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".venv", "bin", "python")
+        if os.path.exists(venv_py) and os.path.abspath(sys.executable) != os.path.abspath(venv_py):
+            os.execv(venv_py, [venv_py] + sys.argv)
+
+_ensure_venv()
+
 from loguru import logger
 
 if TYPE_CHECKING:

@@ -182,12 +182,20 @@ VOICE_CATALOG = ELEVENLABS_VOICE_CATALOG
 
 
 def select_dynamic_voice(topic: str, script: str, profile: dict) -> str:
-    """Dynamically casts the optimal narrator voice based on the story's emotional tone and mystery."""
+    """Dynamically casts the optimal narrator voice based on story tone and global config."""
+    from app.services.voice import get_elevenlabs_api_key
     voice_cfg = profile.get("voice", {})
-    provider = voice_cfg.get("provider", "elevenlabs").lower()
-    configured = voice_cfg.get("voice_name")
+    global_provider = str(getattr(config, "tts_provider", "") or (config.get("tts_provider", "") if isinstance(config, dict) else "")).lower()
 
-    if configured and not voice_cfg.get("dynamic", False):
+    if global_provider:
+        provider = global_provider
+    elif not get_elevenlabs_api_key():
+        provider = "edge"
+    else:
+        provider = voice_cfg.get("provider", "elevenlabs").lower()
+
+    configured = voice_cfg.get("voice_name")
+    if configured and not voice_cfg.get("dynamic", False) and provider == voice_cfg.get("provider", "elevenlabs").lower():
         return configured
 
     if provider == "edge":

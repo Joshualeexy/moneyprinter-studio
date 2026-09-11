@@ -21,53 +21,94 @@ from app.services import voice
 FONTS_DIR = os.path.join(WORKSPACE_ROOT, "resource", "fonts")
 
 
-def srt_to_ass(srt_path: str, ass_path: str):
-    """
-    Converts standard SRT into viral TikTok/Shorts karaoke ASS:
-    - 2 to 3 words per card (breaking on punctuation)
-    - ALL CAPS font (Montserrat Black, 56pt)
-    - Active word dynamically highlighted in Vibrant Golden-Orange (#FF9C0C)
-    - Inactive words in Crisp Pure White (#FFFFFF)
-    - Fitted dark opaque card background centered at 70% height
-    """
-    with open(srt_path, 'r', encoding='utf-8') as f:
-        content = f.read()
-    blocks = re.split(r'\n\s*\n', content.strip())
-    
-    all_word_cues = []
-    for block in blocks:
-        lines = [l.strip() for l in block.splitlines() if l.strip()]
-        if len(lines) < 3:
-            continue
-        m = re.match(r'(\d+):(\d+):(\d+)[,\.](\d+)\s*-->\s*(\d+):(\d+):(\d+)[,\.](\d+)', lines[1])
-        if not m:
-            continue
-        start_sec = int(m.group(1))*3600 + int(m.group(2))*60 + int(m.group(3)) + int(m.group(4))/1000.0
-        end_sec = int(m.group(5))*3600 + int(m.group(6))*60 + int(m.group(7)) + int(m.group(8))/1000.0
-        text = ' '.join(lines[2:])
-        words = text.split()
-        if not words:
-            continue
-        
-        dur_sec = max(0.1, end_sec - start_sec)
-        total_chars = sum(len(w) for w in words)
-        curr_t = start_sec
-        for w in words:
-            w_dur = dur_sec * (len(w) / total_chars)
-            all_word_cues.append({
-                "word": w,
-                "start": round(curr_t, 3),
-                "end": round(curr_t + w_dur, 3)
-            })
-            curr_t += w_dur
+_whisper_model = None
 
-    # Group into punchy 2-3 word phrases (matching viral short-form pacing)
+def get_whisper_model():
+    global _whisper_model
+    if _whisper_model is None:
+        try:
+            from faster_whisper import WhisperModel
+            _whisper_model = WhisperModel("base", device="cpu", compute_type="int8")
+        except Exception as e:
+            print(f"  [Warning] faster_whisper not available: {e}")
+            _whisper_model = False
+    return _whisper_model
+
+
+def generate_option_a_ass(media_path: str, srt_path: str, ass_path: str):
+    """
+    Generates Option A progressive karaoke subtitles:
+    - 1 to 3 words per card (break on punctuation or pause > 0.35s)
+    - Word 1 in Golden-Orange (#FF9C0C), future words hidden
+    - Word 2 in Gold, Word 1 turns White (#FFFFFF)
+    - Word 3 in Gold, Words 1 & 2 White
+    - Card disappears immediately once phrase ends (no lingering text)
+    - Montserrat Black font, dark opaque rounded background at 70% height
+    - Transcribed acoustically with faster_whisper down to the millisecond
+    """
+    words = []
+    model = get_whisper_model()
+    if model and media_path and os.path.exists(media_path):
+        try:
+            segments, _ = model.transcribe(media_path, word_timestamps=True)
+            for s in segments:
+                for w in s.words:
+                    cleaned = w.word.strip()
+                    if cleaned:
+                        words.append({
+                            "word": cleaned,
+                            "start": float(w.start),
+                            "end": float(w.end)
+                        })
+        except Exception as e:
+            print(f"  [Warning] Whisper acoustic transcription failed ({e}), falling back to SRT")
+            words = []
+
+    # Fallback to SRT if whisper had no words
+    if not words and srt_path and os.path.exists(srt_path):
+        with open(srt_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        blocks = re.split(r'\n\s*\n', content.strip())
+        for block in blocks:
+            lines = [l.strip() for l in block.splitlines() if l.strip()]
+            if len(lines) < 3:
+                continue
+            m = re.match(r'(\d+):(\d+):(\d+)[,\.](\d+)\s*-->\s*(\d+):(\d+):(\d+)[,\.](\d+)', lines[1])
+            if not m:
+                continue
+            start_sec = int(m.group(1))*3600 + int(m.group(2))*60 + int(m.group(3)) + int(m.group(4))/1000.0
+            end_sec = int(m.group(5))*3600 + int(m.group(6))*60 + int(m.group(7)) + int(m.group(8))/1000.0
+            text = ' '.join(lines[2:])
+            w_list = text.split()
+            if not w_list:
+                continue
+            dur_sec = max(0.1, end_sec - start_sec)
+            total_chars = sum(len(w) for w in w_list)
+            curr_t = start_sec
+            for w in w_list:
+                w_dur = dur_sec * (len(w) / total_chars)
+                words.append({
+                    "word": w,
+                    "start": round(curr_t, 3),
+                    "end": round(curr_t + w_dur, 3)
+                })
+                curr_t += w_dur
+
+    if not words:
+        return []
+
+    # Group into 1-3 word phrases (breaking on punctuation or pause > 0.35s)
     phrases = []
     curr = []
-    for c in all_word_cues:
-        curr.append(c)
-        w_raw = c["word"]
-        if len(curr) >= 3 or w_raw.endswith((".", "?", "!", ",", ";", ":")):
+    for i, w in enumerate(words):
+        curr.append(w)
+        raw = w["word"]
+        ends_punct = bool(re.search(r'[.?!,;:]$', raw))
+        has_gap = False
+        if i < len(words) - 1:
+            if words[i+1]["start"] - w["end"] > 0.35:
+                has_gap = True
+        if len(curr) >= 3 or ends_punct or has_gap:
             phrases.append(curr)
             curr = []
     if curr:
@@ -77,9 +118,12 @@ def srt_to_ass(srt_path: str, ass_path: str):
         h = int(sec // 3600)
         m = int((sec % 3600) // 60)
         s = sec % 60
-        return f'{h}:{m:02d}:{s:05.2f}'
+        return f"{h}:{m:02d}:{s:05.2f}"
 
-    header = '''[Script Info]
+    c_gold = "{\\c&H000C9CFF&}"
+    c_white = "{\\c&H00FFFFFF&}"
+
+    header = """[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
 PlayResY: 1920
@@ -91,30 +135,39 @@ Style: Default,Montserrat Black,56,&H00FFFFFF,&H000C9CFF,&H00000000,&HF0101010,-
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-'''
+"""
 
     events = []
-    # Emit frame-accurate dialogue events highlighting the single currently spoken word
     for phrase in phrases:
-        clean_words = [c["word"].rstrip(".?!,;:").upper() for c in phrase]
+        clean_words = [re.sub(r"[^\w\']", "", c["word"]).upper() for c in phrase]
         for i, cue in enumerate(phrase):
-            start_str = to_ass_time(cue["start"])
-            end_str = to_ass_time(cue["end"])
-            
+            start_t = cue["start"]
+            if i < len(phrase) - 1:
+                end_t = phrase[i+1]["start"]
+            else:
+                end_t = cue["end"]
+
+            if end_t <= start_t:
+                end_t = start_t + 0.1
+
+            start_str = to_ass_time(start_t)
+            end_str = to_ass_time(end_t)
+
             line_parts = []
-            for j, w in enumerate(clean_words):
+            for j in range(i + 1):
+                w_text = clean_words[j]
                 if j == i:
-                    line_parts.append(f"{{\\c&H000C9CFF&}}{w}")
+                    line_parts.append(f"{c_gold}{w_text}")
                 else:
-                    line_parts.append(f"{{\\c&H00FFFFFF&}}{w}")
-            
+                    line_parts.append(f"{c_white}{w_text}")
+
             card_text = " ".join(line_parts)
-            events.append(f'Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{card_text}')
+            events.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{card_text}")
 
-    with open(ass_path, 'w', encoding='utf-8') as f:
-        f.write(header + '\n'.join(events) + '\n')
+    with open(ass_path, "w", encoding="utf-8") as f:
+        f.write(header + "\n".join(events) + "\n")
 
-    return all_word_cues
+    return words
 
 
 def get_or_generate_srt(video_dir: str, meta: dict) -> str:
@@ -214,14 +267,24 @@ def process_video(meta_path: str, force: bool = False) -> bool:
         if os.path.exists(combined_candidate):
             source_video = combined_candidate
 
-    # Obtain or generate SRT
-    srt_path = get_or_generate_srt(video_dir, meta)
-    if not srt_path or not os.path.exists(srt_path):
-        print(f"  [Skip] Could not obtain or generate subtitle.srt for {video_dir}")
+    if source_video == dest_video and meta.get("subtitles_burned"):
+        print(f"  [Skip] No clean combined.mp4 found for {video_dir} and subtitles are already burned (prevents overlap)")
         return False
 
+    # Pass audio.mp3 or source_video to whisper for acoustic millisecond timestamps
+    media_for_transcription = source_video
+    if task_id:
+        task_dir = os.path.join(WORKSPACE_ROOT, "storage", "tasks", task_id)
+        task_audio = os.path.join(task_dir, "audio.mp3")
+        if os.path.exists(task_audio):
+            media_for_transcription = task_audio
+
+    srt_path = os.path.join(video_dir, "subtitle.srt")
+    if not os.path.exists(srt_path):
+        srt_path = get_or_generate_srt(video_dir, meta)
+
     ass_path = os.path.join(video_dir, "karaoke.ass")
-    word_cues = srt_to_ass(srt_path, ass_path)
+    word_cues = generate_option_a_ass(media_for_transcription, srt_path, ass_path)
 
     # Save karaoke.json as well
     with open(os.path.join(video_dir, "karaoke.json"), "w", encoding="utf-8") as kf:

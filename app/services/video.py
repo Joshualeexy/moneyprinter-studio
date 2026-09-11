@@ -46,17 +46,22 @@ def build_karaoke_clips(word_cues, font_path, font_size=56, video_w=1080, video_
         card_h = int(line_h + pad * 2)
 
         for i, cue in enumerate(phrase):
+            step_words = clean_words[:i + 1]
+            step_word_widths = word_widths[:i + 1]
+            step_text_w = sum(step_word_widths) + use_space_w * i
+            card_w = int(step_text_w + pad * 2)
+
             img = Image.new("RGBA", (card_w, card_h), (0, 0, 0, 0))
             draw = ImageDraw.Draw(img)
 
             # Draw tight, fitted dark background box hugging this specific line
-            draw.rounded_rectangle([0, 0, card_w, card_h], radius=10, fill=(0, 0, 0, 245))
+            draw.rounded_rectangle([0, 0, card_w, card_h], radius=10, fill=(16, 16, 16, 240))
 
             cur_x = pad
             y = pad - bbox[1]
-            for j, (w_text, w_w) in enumerate(zip(clean_words, word_widths)):
-                # Vibrant Gold/Yellow for active spoken word, pure crisp White for others
-                fill_color = (255, 215, 0, 255) if j == i else (255, 255, 255, 255)
+            for j, (w_text, w_w) in enumerate(zip(step_words, step_word_widths)):
+                # Vibrant Golden-Orange (#FF9C0C) for active spoken word, pure crisp White for others
+                fill_color = (255, 156, 12, 255) if j == i else (255, 255, 255, 255)
                 draw.text(
                     (cur_x, y),
                     w_text,

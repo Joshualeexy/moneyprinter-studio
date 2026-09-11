@@ -1,30 +1,137 @@
 #!/usr/bin/env python3
 """
-MoneyPrinter Studio - Autonomous AI Cinema Engine
-Main CLI entry point forwarding to the worker orchestrator.
+==============================================================================
+MoneyPrinter Studio - Unified Main Entry Point
+==============================================================================
+Single CLI interface for all MoneyPrinter operations:
+  python main.py                             # Run default single episode / profile
+  python main.py run --profile space_anomalies --topic "Wow Signal"
+  python main.py series --profile space_anomalies --count 4
+  python main.py infinite                    # 24/7 multi-niche autonomous generator
+  python main.py worker                      # Run background worker task
+  python main.py gallery [--port 5050]       # Start Web Studio Gallery UI
+  python main.py reburn                      # Re-burn karaoke subtitles on output videos
+==============================================================================
 """
-import argparse
+
+import os
 import sys
-from worker import run_worker_pipeline
+import argparse
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="MoneyPrinter Studio - Autonomous AI Cinema Engine")
-    parser.add_argument("--profile", default="dark_history", help="Niche profile slug or path")
-    parser.add_argument("--topic", default=None, help="Explicit topic override")
-    parser.add_argument("--clear-state", action="store_true", help="Clear saved state and start fresh")
-    parser.add_argument("--episode", type=int, default=None, help="Episode number in series (e.g. 1, 2, 3)")
-    parser.add_argument("--gallery", "--server", action="store_true", help="Start the video gallery web server")
-    args, unknown = parser.parse_known_args()
+# Auto-reexec using project .venv python if system python lacks required dependencies
+def _ensure_venv():
+    try:
+        import loguru
+    except ImportError:
+        venv_py = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".venv", "bin", "python")
+        if os.path.exists(venv_py) and os.path.abspath(sys.executable) != os.path.abspath(venv_py):
+            os.execv(venv_py, [venv_py] + sys.argv)
 
-    if args.gallery or (len(sys.argv) > 1 and sys.argv[1] in ("gallery", "server")):
-        from gallery import main as gallery_main
-        gallery_main()
-        sys.exit(0)
+_ensure_venv()
 
-    run_worker_pipeline(
-        profile_path=args.profile,
-        topic_override=args.topic,
-        clear_state=args.clear_state,
-        episode_num=args.episode
+from loguru import logger
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="🎬 MoneyPrinter Studio - Autonomous AI Documentary Engine",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Commands & Usage Examples:
+  python main.py run --profile space_anomalies --topic "The Wow Signal"
+  python main.py series --profile deep_sea --count 5
+  python main.py infinite                       # 24/7 continuous generator across all niches
+  python main.py gallery --port 5050            # Web studio gallery video player
+  python main.py reburn                         # Re-burn Whisper karaoke subtitles
+  python main.py worker --profile prehistoric   # Task queue worker
+"""
     )
 
+    subparsers = parser.add_subparsers(dest="command", help="Subcommand mode to run")
+
+    # Command: run
+    run_parser = subparsers.add_parser("run", help="Generate a single video episode for a profile")
+    run_parser.add_argument("--profile", default="dark_history", help="Niche profile slug or path")
+    run_parser.add_argument("--topic", default=None, help="Explicit topic override")
+    run_parser.add_argument("--episode", type=int, default=None, help="Episode number in series")
+    run_parser.add_argument("--clear-state", action="store_true", help="Clear saved checkpoint state")
+
+    # Command: series
+    series_parser = subparsers.add_parser("series", help="Generate a multi-episode batch for a profile")
+    series_parser.add_argument("--profile", default="space_anomalies", help="Niche profile slug or path")
+    series_parser.add_argument("--count", type=int, default=4, help="Number of episodes to generate (default: 4)")
+
+    # Command: infinite
+    subparsers.add_parser("infinite", help="Run 24/7 continuous multi-niche generator loop")
+
+    # Command: worker
+    worker_parser = subparsers.add_parser("worker", help="Run task worker execution engine")
+    worker_parser.add_argument("--profile", default="dark_history", help="Niche profile slug or path")
+    worker_parser.add_argument("--topic", default=None, help="Explicit topic override")
+    worker_parser.add_argument("--episode", type=int, default=None, help="Episode number")
+    worker_parser.add_argument("--clear-state", action="store_true", help="Clear saved state")
+
+    # Command: gallery / server
+    gallery_parser = subparsers.add_parser("gallery", help="Start Web Studio Video Gallery UI")
+    gallery_parser.add_argument("--port", type=int, default=5050, help="Port to listen on (default: 5050)")
+    gallery_parser.add_argument("--host", default="0.0.0.0", help="Host interface (default: 0.0.0.0)")
+
+    # Command: reburn
+    reburn_parser = subparsers.add_parser("reburn", help="Re-burn Whisper karaoke subtitles onto output videos")
+    reburn_parser.add_argument("--dir", default=None, help="Target directory (default: output/ and date folders)")
+    reburn_parser.add_argument("--force", action="store_true", help="Force re-burn even if already burned")
+
+    # Fallback / root flags for direct backwards compatibility (e.g. python main.py --profile space_anomalies)
+    parser.add_argument("--profile", default="dark_history", help="Niche profile slug or path")
+    parser.add_argument("--topic", default=None, help="Explicit topic override")
+    parser.add_argument("--episode", type=int, default=None, help="Episode number")
+    parser.add_argument("--clear-state", action="store_true", help="Clear saved state")
+    parser.add_argument("--gallery", "--server", action="store_true", help="Start web gallery")
+
+    args = parser.parse_args()
+
+    cmd = args.command
+
+    # Handle Web Gallery server
+    if getattr(args, "gallery", False) or cmd in ("gallery", "server"):
+        from runners.gallery import main as gallery_main
+        port = getattr(args, "port", 5050)
+        host = getattr(args, "host", "0.0.0.0")
+        sys.argv = [sys.argv[0], "--port", str(port), "--host", host]
+        gallery_main()
+        return
+
+    # Handle Series batch
+    if cmd == "series":
+        from runners.series import run_series
+        run_series(args.profile, count=args.count)
+        return
+
+    # Handle Infinite generator
+    if cmd == "infinite":
+        from runners.infinite import run_infinite_loop
+        run_infinite_loop()
+        return
+
+    # Handle Re-burn subtitles
+    if cmd == "reburn":
+        from runners.reburn import main as reburn_main
+        reburn_main()
+        return
+
+    # Handle Worker / Run single video
+    from runners.worker import run_worker_pipeline
+    prof = getattr(args, "profile", "dark_history")
+    top = getattr(args, "topic", None)
+    ep = getattr(args, "episode", None)
+    clr = getattr(args, "clear_state", False)
+
+    run_worker_pipeline(
+        profile_path=prof,
+        topic_override=top,
+        clear_state=clr,
+        episode_num=ep
+    )
+
+
+if __name__ == "__main__":
+    main()

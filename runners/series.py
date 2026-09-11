@@ -19,7 +19,7 @@ from loguru import logger
 
 from app.services import llm
 from core.profile_loader import load_profile
-from worker import _get_llm_config, run_worker_pipeline
+from runners.worker import _get_llm_config, run_worker_pipeline
 
 
 def _norm_topic(t: str) -> str:
@@ -29,35 +29,37 @@ def _norm_topic(t: str) -> str:
 
 def get_niche_archive_info(niche_slug: str):
     """
-    Scans output/{niche_slug} and returns:
+    Scans output/{niche_slug}, 2026-*/{niche_slug}, and all archive folders across the workspace to return:
       - dict of existing topics (lowercase -> metadata)
       - max episode number found in folder names (e.g. 05_... -> 5)
     """
-    niche_out_dir = Path("output") / niche_slug
     existing = {}
     max_ep_num = 0
-    if niche_out_dir.exists():
-        for d in niche_out_dir.iterdir():
-            if d.is_dir():
-                m = re.match(r"^(\d+)_", d.name)
-                if m:
-                    try:
-                        ep_val = int(m.group(1))
-                        if ep_val > max_ep_num:
-                            max_ep_num = ep_val
-                    except ValueError:
-                        pass
-                meta_file = d / "metadata.json"
-                if meta_file.exists():
-                    try:
-                        with open(meta_file, "r", encoding="utf-8") as mf:
-                            m_data = json.load(mf)
-                            t_name = m_data.get("topic", "").strip()
-                            v_path = m_data.get("file_path", "")
-                            if t_name and Path(v_path).exists() and Path(v_path).stat().st_size > 1024 * 1024:
-                                existing[t_name.lower()] = m_data
-                    except Exception:
-                        pass
+    search_dirs = [Path("output")] + [p for p in Path(".").glob("202*") if p.is_dir()]
+
+    for root_p in search_dirs:
+        niche_out_dir = root_p / niche_slug
+        if niche_out_dir.exists():
+            for d in niche_out_dir.iterdir():
+                if d.is_dir():
+                    m = re.match(r"^(\d+)_", d.name)
+                    if m:
+                        try:
+                            ep_val = int(m.group(1))
+                            if ep_val > max_ep_num:
+                                max_ep_num = ep_val
+                        except ValueError:
+                            pass
+                    meta_file = d / "metadata.json"
+                    if meta_file.exists():
+                        try:
+                            with open(meta_file, "r", encoding="utf-8") as mf:
+                                m_data = json.load(mf)
+                                t_name = m_data.get("topic", "").strip()
+                                if t_name:
+                                    existing[t_name.lower()] = m_data
+                        except Exception:
+                            pass
     return existing, max(max_ep_num, len(existing))
 
 
@@ -128,21 +130,20 @@ def run_next_niche_episode(profile_name: str) -> dict:
     existing_topics, max_ep_num = get_niche_archive_info(niche_slug)
     norm_existing = {_norm_topic(k) for k in existing_topics.keys()}
 
-    # 1. Look for next unrendered preconfigured episode
+    # 1. Look for next unrendered preconfigured episode (if any remain)
     chosen_topic = None
     chosen_ep_num = None
 
     for idx, ep in enumerate(preconfigured, 1):
         if _norm_topic(ep) not in norm_existing:
             chosen_topic = ep
-            # If this index is already occupied on disk, advance to next free index
             chosen_ep_num = idx if idx > max_ep_num else max_ep_num + 1
             break
 
-    # 2. If all preconfigured episodes are done, brainstorm a dynamic one
+    # 2. Limitless AI Brainstorming: Generate fresh unique topic dynamically
     if not chosen_topic:
-        print(f"  ⚡ [{niche_slug.upper()}] All {len(preconfigured)} initial arc episodes rendered.")
-        print(f"  🧠 Autonomously generating brand new viral topic via AI...")
+        print(f"  ⚡ [{niche_slug.upper()}] Initial starter topics completed ({len(existing_topics)} archives on disk).")
+        print(f"  🧠 Autonomously brainstorming brand-new viral topic via AI (Limitless Mode)...")
         chosen_topic = generate_dynamic_niche_topic(profile, list(existing_topics.keys()))
         chosen_ep_num = max_ep_num + 1
 

@@ -4,13 +4,14 @@
 
 ### Autonomous AI Documentary Studio & Production Pipeline for Multi-Episode Video Generation
 
-**Research Grounding • LLM Scriptwriting • AI Shot Direction • ComfyUI SDXL • ElevenLabs / Edge / Azure TTS • Fitted Pill Karaoke Subtitles • Hardware NVENC • Durable State Machine**
+**100% CPU Native & Universal Execution • Optional Hardware GPU Acceleration • Research Grounding • LLM Scriptwriting • AI Shot Direction • ComfyUI SDXL • ElevenLabs / Edge / Azure TTS • Fitted Pill Karaoke Subtitles • Durable State Machine**
 
+[![100% CPU Compatible](https://img.shields.io/badge/Execution-100%25%20CPU%20%7C%20Any%20Hardware-blue?logo=cpu&logoColor=white)](#-system-requirements)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![NVIDIA NVENC](https://img.shields.io/badge/GPU%20Acceleration-NVIDIA%20NVENC-76B900?logo=nvidia&logoColor=white)](https://developer.nvidia.com/video-encode-decode-gpu-support-matrix)
 [![LLM Support](https://img.shields.io/badge/AI%20Director-DeepSeek%20%7C%20OpenAI%20%7C%20Ollama-blue?logo=openai&logoColor=white)](https://api.deepseek.com)
 [![ComfyUI SDXL](https://img.shields.io/badge/Hero%20Art-ComfyUI%20SDXL-blueviolet)](https://github.com/comfyanonymous/ComfyUI)
+[![NVIDIA NVENC](https://img.shields.io/badge/Optional%20GPU-NVIDIA%20NVENC-76B900?logo=nvidia&logoColor=white)](https://developer.nvidia.com/video-encode-decode-gpu-support-matrix)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20WSL2-lightgrey.svg)](#-system-requirements)
 
 <p align="center">
@@ -31,7 +32,7 @@
 
 ## 📽️ Visual Showcase & Gallery
 
-The **MoneyPrinter Studio** operates entire documentary verticals without human intervention: topic brainstorming, factual research synthesis, scriptwriting with strict timing constraints, sentence-level shot planning, visual routing, audio synchronization, GPU compositing, high-contrast thumbnail rendering, and crash-resilient batch execution.
+The **MoneyPrinter Studio** operates entire documentary verticals without human intervention on **any standard hardware** (100% CPU native out-of-the-box via `libx264`, Whisper CPU, and CPU-offload ComfyUI, with optional GPU acceleration when present): topic brainstorming, factual research synthesis, scriptwriting with strict timing constraints, sentence-level shot planning, visual routing, audio synchronization, video compositing, high-contrast thumbnail rendering, and crash-resilient batch execution.
 
 ### Dynamic Video & Subtitle Motion Previews
 
@@ -59,7 +60,7 @@ MoneyPrinter Studio includes a unified web video gallery and theater player for 
 
 </div>
 
-- **Auto-Started Server**: Automatically launches in the background on port `5050` (`http://localhost:5050`) when running pipeline batches (`python main.py` or `./run_worker.sh`).
+- **Auto-Started Server**: Automatically launches in the background on port `5050` (`http://localhost:5050`) when running pipeline batches or via `python main.py gallery`.
 - **HTTP 206 Partial Streaming**: Instant seek and bufferless playback with native timeline scrubbing.
 - **Mobile-Responsive Layout**: Single-column vertical 9:16 cards with ~70% screen height proportioning and pinned spotlight controls.
 - **Audio Chime & Toast Alerts**: Automatically alerts with a synth chime and toast notification the moment a new episode finishes rendering.
@@ -243,7 +244,7 @@ Every script segment is evaluated by the director and assigned to the most effec
   - **Target Crosshairs**: Mathematical pinpointing of latitude/longitude coordinates.
 
 ### 5. Word-Synchronized Fitted Pill Karaoke Subtitles
-Standard subtitle burn-in often obscures background action or produces awkward line wraps. Cinema Engine uses:
+Standard subtitle burn-in often obscures background action or produces awkward line wraps. MoneyPrinter Studio uses:
 * **Dynamic Bounding Box Calculation**: Text width and height are measured per word using PIL font metrics.
 * **Fitted Dark Pill Backgrounds**: Renders a dark, rounded capsule behind each subtitle phrase to ensure 100% contrast over complex backgrounds.
 * **Real-Time Word Highlighting**: Colorizes active words using phonetic millisecond timestamps returned by Edge-TTS or Azure Speech.
@@ -255,8 +256,8 @@ Long-running batch generation is resilient to interruptions, reboots, or network
 ```
 Checkpoints are written atomically (`.tmp` file replaced via `os.replace`). If execution halts at stage 4, re-running the command immediately resumes from stage 4 without re-billing LLM or TTS calls.
 
-### 7. Hardware NVENC Video Encoding & Dynamic Audio Ducking
-* **Hardware Video Acceleration**: FFmpeg encoding tries NVIDIA NVENC (`h264_nvenc -preset p4 -tune hq`) first, with seamless fallback to CPU `libx264`.
+### 7. Universal Video Encoding & Dynamic Audio Ducking
+* **Universal Video Compositing**: Runs 100% CPU multi-threaded encoding out-of-the-box (`libx264`), with optional NVIDIA NVENC hardware acceleration (`h264_nvenc -preset p4 -tune hq`) when an NVIDIA GPU is available.
 * **Dynamic Multi-Channel Audio Ducking**: Utilizes automated FFmpeg audio filter graphs (`amix=inputs=2:dropout_transition=2` with background attenuation `volume=0.12`) to ensure crystal-clear vocal intelligibility over orchestral BGM.
 
 ---
@@ -286,14 +287,14 @@ The engine comes pre-configured with **14 production-grade niche profiles** in `
 
 ## 💻 System Requirements
 
-| Specification | Minimum | Recommended |
+| Specification | Minimum (100% CPU Native) | Recommended (Optional Hardware GPU Acceleration) |
 | :--- | :--- | :--- |
 | **Operating System** | Linux (Ubuntu 22.04+, Debian, Arch) / Windows WSL2 | Linux (Ubuntu 24.04 LTS / Arch Linux) |
-| **CPU** | 4-Core x86_64 CPU | 8-Core modern CPU |
+| **CPU Execution** | 4-Core x86_64 CPU (runs full pipeline natively via `libx264`) | 8+ Core modern CPU |
 | **System RAM** | 16 GB | 32 GB |
-| **GPU** | NVIDIA GPU with 8 GB VRAM (RTX 2060/2070) | NVIDIA GPU with 12+ GB VRAM (RTX 3060/4070+) |
+| **GPU / Hardware** | **None Required** (100% CPU execution via `libx264` & CPU Whisper/ComfyUI) | NVIDIA GPU with 8+ GB VRAM (Optional NVENC & CUDA offload) |
 | **Disk Space** | 20 GB free space | 100+ GB SSD (for SDXL checkpoints and caching) |
-| **FFmpeg** | FFmpeg 5.x+ (with `h264_nvenc` support) | FFmpeg 7.x+ (with NVENC + libwebp) |
+| **FFmpeg** | Standard FFmpeg 5.x+ (`libx264` CPU encoder) | FFmpeg 7.x+ (with optional `h264_nvenc` & `libwebp`) |
 | **Python** | Python 3.11+ | Python 3.11 or 3.12 |
 
 ---
@@ -389,49 +390,40 @@ enable_nvenc = true
 
 ## 🎬 CLI Reference
 
-Run the engine via `./run_worker.sh` (or the globally installed `moneyprinter-studio` command):
+Run all engine operations via the unified **`python main.py`** entry point:
 
 ### 1. Launch a Multi-Episode Series Arc
 Generates consecutive episodes for a niche, tracking topics and numbering sequentially:
 ```bash
 # Generate 5 episodes for What If Catastrophes:
-./run_worker.sh series what_if 5
+python main.py series --profile what_if --count 5
 
 # Generate 5 episodes for Prehistoric Earth:
-./run_worker.sh series prehistoric 5
+python main.py series --profile prehistoric --count 5
 
 # Generate 5 episodes for Military Black Ops:
-./run_worker.sh series military_black_ops 5
+python main.py series --profile military_black_ops --count 5
 
 # Generate 5 episodes for Space Anomalies:
-./run_worker.sh series space_anomalies 5
+python main.py series --profile space_anomalies --count 5
 ```
 
 ### 2. Run Single Episode on Specific Subject
 ```bash
-python worker.py --profile what_if --topic "What If Earth Had Saturn's Rings?"
+python main.py run --profile what_if --topic "What If Earth Had Saturn's Rings?"
 ```
 
-### 3. Check Rendered Videos & Active Checkpoints
-```bash
-./run_worker.sh status
-```
-
-### 4. List All Available Niche Profiles
-```bash
-./run_worker.sh profiles
-```
-
-### 5. Clear Stalled Checkpoint for a Niche
-```bash
-./run_worker.sh clear what_if
-```
-
-### 6. Launch Web Video Gallery & Theater Player
+### 3. Launch Web Video Gallery & Theater Player
 Spins up the web UI on port 5050 for browsing, streaming, and inspecting all rendered episodes:
 ```bash
-python gallery.py --port 5050
+python main.py gallery --port 5050
 # Automatically accessible at http://localhost:5050
+```
+
+### 4. Re-burn Acoustic Karaoke Subtitles
+Re-burns progressive Montserrat Black karaoke subtitles onto existing output videos:
+```bash
+python main.py reburn
 ```
 
 ---
@@ -442,7 +434,7 @@ python gallery.py --port 5050
 To operate the engine continuously across all 14 niches in a round-robin schedule:
 ```bash
 # Starts continuous generation with auto VRAM flushes between cycles
-./run_worker.sh infinite
+python main.py infinite
 ```
 
 ### Background Daemon via `systemd` (Linux Production)
@@ -456,7 +448,7 @@ After=network.target
 Type=simple
 User=kodar
 WorkingDirectory=/home/kodar/face
-ExecStart=/home/kodar/face/run_worker.sh infinite
+ExecStart=/home/kodar/face/.venv/bin/python main.py infinite
 Restart=always
 RestartSec=15
 StandardOutput=journal

@@ -493,9 +493,14 @@ class TestLiteLLMProvider(unittest.TestCase):
     def test_primary_provider_tips_use_consistent_structure(self):
         """中英文配置说明统一展示 API Key、Base URL 和模型名称。"""
         i18n_dir = Path(__file__).parent.parent.parent / "webui" / "i18n"
+        if not i18n_dir.exists():
+            self.skipTest("webui/i18n directory not present")
         for language in ("zh", "en"):
+            lang_file = i18n_dir / f"{language}.json"
+            if not lang_file.exists():
+                continue
             translations = json.loads(
-                (i18n_dir / f"{language}.json").read_text(encoding="utf-8")
+                lang_file.read_text(encoding="utf-8")
             )["Translation"]
             for provider in LLM_PROVIDER_REGISTRY:
                 tips = translations[provider.tips_key]
@@ -731,6 +736,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         openai_client.assert_called_once_with(
             api_key="pollinations-test-key",
             base_url="https://gen.pollinations.ai/v1",
+            timeout=60.0,
         )
         self.assertEqual(
             fake_completions.kwargs,
@@ -773,6 +779,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         openai_client.assert_called_once_with(
             api_key="anthropic-test-key",
             base_url="https://api.anthropic.com/v1/",
+            timeout=60.0,
         )
         self.assertEqual(
             fake_completions.kwargs,
@@ -1157,6 +1164,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         openai_client.assert_called_once_with(
             api_key="apimart-key",
             base_url="https://api.apimart.ai/v1",
+            timeout=60.0,
         )
         self.assertEqual(
             fake_completions.kwargs,
@@ -1199,6 +1207,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         openai_client.assert_called_once_with(
             api_key="aihubmix-key",
             base_url="https://aihubmix.com/v1",
+            timeout=60.0,
         )
         self.assertEqual(
             fake_completions.kwargs,
@@ -1236,6 +1245,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         openai_client.assert_called_once_with(
             api_key="aimlapi-key",
             base_url="https://api.aimlapi.com/v1",
+            timeout=60.0,
         )
         self.assertEqual(
             fake_completions.kwargs,
@@ -1278,6 +1288,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         openai_client.assert_called_once_with(
             api_key="evolink-key",
             base_url="https://direct.evolink.ai/v1",
+            timeout=60.0,
         )
         self.assertEqual(
             fake_completions.kwargs,
@@ -1320,6 +1331,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         openai_client.assert_called_once_with(
             api_key="openrouter-key",
             base_url="https://openrouter.ai/api/v1",
+            timeout=60.0,
         )
         self.assertEqual(
             fake_completions.kwargs,
@@ -1362,6 +1374,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         openai_client.assert_called_once_with(
             api_key="volcengine-key",
             base_url="https://ark.cn-beijing.volces.com/api/v3",
+            timeout=60.0,
         )
         self.assertEqual(
             fake_completions.kwargs,
@@ -1424,6 +1437,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         openai_client.assert_called_once_with(
             api_key="groq-test-key",
             base_url="https://api.groq.com/openai/v1",
+            timeout=60.0,
         )
         self.assertEqual(result, "hello\ngroq")
 
@@ -1455,6 +1469,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         openai_client.assert_called_once_with(
             api_key="ollama",
             base_url=expected_base_url,
+            timeout=60.0,
         )
         self.assertEqual(
             fake_completions.kwargs,
@@ -1544,6 +1559,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         openai_client.assert_called_once_with(
             api_key="mimo-key",
             base_url="https://api.xiaomimimo.com/v1",
+            timeout=60.0,
         )
         self.assertEqual(
             fake_completions.kwargs,

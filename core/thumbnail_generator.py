@@ -45,7 +45,7 @@ CRITICAL RULES FOR THUMBNAIL PROMPT:
 
 Return ONLY a JSON object with keys "title", "thumbnail_text", "thumbnail_prompt". No explanations, no markdown."""
 
-    from worker import _get_llm_config
+    from runners.worker import _get_llm_config
     app_cfg = _get_llm_config(profile)
     resp = llm._generate_response(prompt, app_config=app_cfg)
     try:

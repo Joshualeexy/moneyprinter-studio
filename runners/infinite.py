@@ -31,7 +31,7 @@ try:
 except Exception:
     pass
 
-from run_series import run_next_niche_episode, get_niche_archive_info
+from runners.series import run_next_niche_episode, get_niche_archive_info
 from core.profile_loader import load_profile
 
 

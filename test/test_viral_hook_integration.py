@@ -5,7 +5,7 @@ ROOT_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
 from core.researcher import fetch_topic_research, EvidencePack
-from worker import build_system_script_prompt, _get_llm_config
+from runners.worker import build_system_script_prompt, _get_llm_config
 from core.profile_loader import load_profile
 
 def test_viral_hook_extraction():

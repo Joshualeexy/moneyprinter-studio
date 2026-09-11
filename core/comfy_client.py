@@ -53,6 +53,7 @@ class ComfyClient:
         except Exception:
             pass
 
+        log_file = os.path.expanduser("~/comfyui/comfy.log")
         cmd = f"cd {comfy_dir} && PYTHONUNBUFFERED=1 ./venv/bin/python main.py --listen 127.0.0.1 --port 8188 {device_flag} --dont-print-server >> {log_file} 2>&1"
         subprocess.Popen(cmd, shell=True, executable="/bin/bash", start_new_session=True)
         for _ in range(35):
