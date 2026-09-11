@@ -27,7 +27,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 
 DEFAULT_PORT = 5050
-WORKSPACE_ROOT = os.path.dirname(os.path.abspath(__file__))
+WORKSPACE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUTPUT_DIR = os.path.join(WORKSPACE_ROOT, "output")
 
 VIDEO_EXTS = ('.mp4', '.webm', '.mov', '.mkv', '.avi', '.m4v')
