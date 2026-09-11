@@ -18,7 +18,7 @@ total_episodes = 5
 episodes = [ "The Baghdad Battery and Ancient Electricity", "Greek Fire: The Byzantines Lost Superweapon", "The Antikythera Mechanism: A 2000 Year Old Computer", "Damascus Steel and Ancient Nanotechnology", "The Roman Flexible Glass That Got Its Inventor Executed",]
 
 [llm]
-provider = "elevenlabs"
+provider = "deepseek"
 model = "deepseek-chat"
 
 [persona]

@@ -245,6 +245,8 @@ def _get_llm_config(profile: dict) -> dict:
     app_cfg = dict(config.app)
     llm_cfg = profile.get("llm", {}) if profile else {}
     provider = (llm_cfg.get("provider") or app_cfg.get("llm_provider", "deepseek")).lower()
+    if provider in ("elevenlabs", "edge", "azure", "edge-tts"):
+        provider = (app_cfg.get("llm_provider") or "deepseek").lower()
     model = llm_cfg.get("model") or app_cfg.get(f"{provider}_model_name", "deepseek-chat")
     app_cfg["llm_provider"] = provider
     if provider == "ollama":

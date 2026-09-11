@@ -18,7 +18,7 @@ total_episodes = 5
 episodes = [ "The Yuba County Five Disappearance", "The DB Cooper Skyjacking", "The Somerton Man Tamam Shud Mystery", "The Hinterkaifeck Murders", "The Isdal Woman Cold Case",]
 
 [llm]
-provider = "elevenlabs"
+provider = "deepseek"
 model = "deepseek-chat"
 
 [persona]

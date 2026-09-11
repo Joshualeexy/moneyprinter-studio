@@ -44,9 +44,16 @@ class ComfyClient:
             return True
         import subprocess
         comfy_dir = os.getenv("COMFY_PATH", os.path.expanduser("~/comfyui/ComfyUI"))
-        log_file = "/home/kodar/face/logs/comfyui.log"
-        os.makedirs(os.path.dirname(log_file), exist_ok=True)
-        cmd = f"cd {comfy_dir} && PYTHONUNBUFFERED=1 ./venv/bin/python main.py --listen 127.0.0.1 --port 8188 --lowvram --dont-print-server >> {log_file} 2>&1"
+        # Check if CUDA is functional, otherwise safely fallback to --cpu
+        device_flag = "--lowvram"
+        try:
+            test_cmd = f"cd {comfy_dir} && ./venv/bin/python -c 'import torch; assert torch.cuda.is_available() and torch.cuda.device_count() > 0'"
+            if subprocess.run(test_cmd, shell=True, executable="/bin/bash", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
+                device_flag = "--cpu"
+        except Exception:
+            pass
+
+        cmd = f"cd {comfy_dir} && PYTHONUNBUFFERED=1 ./venv/bin/python main.py --listen 127.0.0.1 --port 8188 {device_flag} --dont-print-server >> {log_file} 2>&1"
         subprocess.Popen(cmd, shell=True, executable="/bin/bash", start_new_session=True)
         for _ in range(35):
             time.sleep(1)

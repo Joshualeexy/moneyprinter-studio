@@ -27,7 +27,7 @@ episodes = [
 ]
 
 [llm]
-provider = "elevenlabs"
+provider = "deepseek"
 model = "deepseek-chat"
 
 [persona]
