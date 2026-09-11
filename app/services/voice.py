@@ -527,7 +527,11 @@ def tts(
         parts = voice_name.split(":")
         if len(parts) >= 2:
             voice_id = parts[1]
-            return elevenlabs_tts(text, voice_id, voice_file, voice_rate, voice_volume)
+            res = elevenlabs_tts(text, voice_id, voice_file, voice_rate, voice_volume)
+            if res is not None:
+                return res
+            logger.warning("[TTS] ElevenLabs voice failed or quota exceeded. Seamlessly falling back to Edge-TTS (en-US-ChristopherNeural)...")
+            return azure_tts_v1(text, "en-US-ChristopherNeural", voice_rate, voice_file)
         else:
             logger.error(f"Invalid elevenlabs voice name format: {voice_name}")
             return None
