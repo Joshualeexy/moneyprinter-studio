@@ -46,6 +46,41 @@ from app.models.schema import VideoAspect, VideoConcatMode, VideoParams
 from app.services import llm, material, subtitle, video, voice
 from app.utils import utils
 from core.checkpoint import CheckpointManager
+def srt_to_word_cues(srt_path: str) -> list:
+    """Parses subtitle.srt and interpolates proportional word-level timestamps."""
+    if not os.path.exists(srt_path):
+        return []
+    with open(srt_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    blocks = re.split(r'\n\s*\n', content.strip())
+    word_cues = []
+    for block in blocks:
+        lines = [l.strip() for l in block.splitlines() if l.strip()]
+        if len(lines) < 3:
+            continue
+        m = re.match(r'(\d+):(\d+):(\d+)[,\.](\d+)\s*-->\s*(\d+):(\d+):(\d+)[,\.](\d+)', lines[1])
+        if not m:
+            continue
+        start_sec = int(m.group(1))*3600 + int(m.group(2))*60 + int(m.group(3)) + int(m.group(4))/1000.0
+        end_sec = int(m.group(5))*3600 + int(m.group(6))*60 + int(m.group(7)) + int(m.group(8))/1000.0
+        text = " ".join(lines[2:])
+        words = text.split()
+        if not words:
+            continue
+        total_chars = sum(len(w) for w in words)
+        dur = max(0.1, end_sec - start_sec)
+        curr_t = start_sec
+        for w in words:
+            w_dur = dur * (len(w) / total_chars)
+            word_cues.append({
+                "word": w,
+                "start": round(curr_t, 3),
+                "end": round(curr_t + w_dur, 3)
+            })
+            curr_t += w_dur
+    return word_cues
+
+
 def get_sentence_scenes(srt_path: str, audio_duration: float, min_dur: float = 2.5, max_dur: float = 4.8) -> list:
     """Parses subtitle.srt into frame-accurate, contiguous narrative scenes synchronized to narrator speech pauses."""
     if not os.path.exists(srt_path):
@@ -665,6 +700,8 @@ def run_worker_pipeline(profile_path: str, topic_override: str = None, clear_sta
                         "start": float(c.start.total_seconds()),
                         "end": float(c.end.total_seconds())
                     })
+            if not word_cues and os.path.exists(subtitle_path):
+                word_cues = srt_to_word_cues(subtitle_path)
             karaoke_json_file = os.path.join(task_dir, "karaoke.json")
             with open(karaoke_json_file, "w", encoding="utf-8") as kf:
                 json.dump(word_cues, kf, indent=2)

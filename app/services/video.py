@@ -1331,6 +1331,7 @@ def generate_video(
                 font_size=params.font_size,
             )
 
+        has_karaoke = False
         karaoke_json_file = os.path.join(output_dir, "karaoke.json")
         if os.path.exists(karaoke_json_file):
             try:
@@ -1349,14 +1350,12 @@ def generate_video(
                     )
                     video_clip = CompositeVideoClip([video_clip, *karaoke_clips])
                     clip_stack.callback(video_clip.close)
+                    has_karaoke = True
             except Exception as k_err:
                 logger.warning(f"Karaoke subtitle loading failed, fallback to SRT: {k_err}")
-                if subtitle_path and os.path.exists(subtitle_path):
-                    sub = clip_stack.enter_context(SubtitlesClip(subtitles=subtitle_path, encoding="utf-8", make_textclip=make_textclip))
-                    text_clips = [create_text_clip(item) for item in sub.subtitles]
-                    video_clip = CompositeVideoClip([video_clip, *text_clips])
-                    clip_stack.callback(video_clip.close)
-        elif subtitle_path and os.path.exists(subtitle_path):
+
+        if not has_karaoke and subtitle_path and os.path.exists(subtitle_path):
+            logger.info(f"Mounting subtitles from {subtitle_path}")
             sub = clip_stack.enter_context(
                 SubtitlesClip(
                     subtitles=subtitle_path,
